@@ -30,7 +30,7 @@ enum JailbreakMemory {
         // Only honour markers whose evidence is still conclusive under the
         // current rule. Markers left by checks that were later demoted (1.3.0's
         // dyld comparison gave a false positive on stock iOS 27) are deleted.
-        guard parts.count == 3, let code = Int(parts[1]).flatMap({ FindingCode(rawValue: $0) }),
+        guard parts.count == 3, let code = UInt16(parts[1]).flatMap({ FindingCode(rawValue: $0) }),
               isStillConclusive(code, detail: parts[2]) else {
             forget()
             return nil

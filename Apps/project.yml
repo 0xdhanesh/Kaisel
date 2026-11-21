@@ -41,6 +41,8 @@ targetTemplates:
   IntegrityInfo:
     info:
       properties:
+        CFBundleDevelopmentRegion: en-GB
+        LSRequiresIPhoneOS: true
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         UILaunchScreen: {}
@@ -58,6 +60,8 @@ targets:
       path: KaiselJBCheck/Info.plist
       properties:
         CFBundleDisplayName: Kaisel JB Check
+        CFBundleDevelopmentRegion: en-GB
+        LSRequiresIPhoneOS: true
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         UILaunchScreen: {}
