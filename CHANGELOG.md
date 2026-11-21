@@ -3,7 +3,14 @@
 All notable changes are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and the project uses [Semantic Versioning](https://semver.org/).
 
-## [1.4.0] - Unreleased (release gates open, see docs/V1.4.0-VALIDATION.md)
+## [1.4.1] - 2026-11-21
+
+### Fixed
+- Release packaging: the app version (`MARKETING_VERSION` in `Apps/project.yml`) is now 1.4.1. The v1.4.0
+  release IPAs were built with the stale 1.3.1 version in their file names and `CFBundleShortVersionString`.
+  No code changes; the SDK version reported to the server stays 1.4.0.
+
+## [1.4.0] - 2026-11-21
 
 Reduces image false positives, makes the reference server fail closed, and adds reproducible lab evidence
 tooling. Not yet run on a device; do not tag until the open release gates pass.
@@ -161,7 +168,9 @@ First jailbroken-device results: Dopamine + RootHide on iPhone9,3, iOS 15.8.2.
 ### Added
 - First version: C core with raw-syscall checks and the Swift scoring layer.
 
-[Unreleased]: https://github.com/0xdhanesh/Kaisel/compare/v1.3.1...HEAD
+[Unreleased]: https://github.com/0xdhanesh/Kaisel/compare/v1.4.1...HEAD
+[1.4.1]: https://github.com/0xdhanesh/Kaisel/compare/v1.4.0...v1.4.1
+[1.4.0]: https://github.com/0xdhanesh/Kaisel/compare/v1.3.1...v1.4.0
 [1.3.1]: https://github.com/0xdhanesh/Kaisel/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/0xdhanesh/Kaisel/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/0xdhanesh/Kaisel/releases/tag/v1.2.0
