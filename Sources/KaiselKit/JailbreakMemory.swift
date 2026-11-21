@@ -25,7 +25,7 @@ enum JailbreakMemory {
               let line = String(data: d, encoding: .utf8) else { return nil }
         let parts = line.split(separator: "|", maxSplits: 2).map(String.init)
         guard parts.count == 3 else { return nil }
-        let title = Int(parts[1]).flatMap { FindingCode(rawValue: $0) }?.metadata.title ?? "code \(parts[1])"
+        let title = UInt16(parts[1]).flatMap { FindingCode(rawValue: $0) }?.metadata.title ?? "code \(parts[1])"
         return RawSignal(.previouslyJailbroken, 80, "seen \(parts[0]): \(title) (\(parts[2]))")
     }
 

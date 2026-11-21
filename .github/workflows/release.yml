@@ -3,7 +3,18 @@ name: Release
 on:
   push:
     tags: ["v*"]
+  release:
+    types: [published]
   workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing version tag to build and publish (for example, v1.3.0)
+        required: true
+        type: string
+
+concurrency:
+  group: release-${{ inputs.tag || github.event.release.tag_name || github.ref_name }}
+  cancel-in-progress: false
 
 permissions:
   contents: write
@@ -12,23 +23,56 @@ jobs:
   unsigned-ipas:
     name: Build unsigned IPAs
     runs-on: macos-15
+    env:
+      RELEASE_TAG: ${{ inputs.tag || github.event.release.tag_name || github.ref_name }}
     steps:
+      - name: Validate release tag
+        run: |
+          case "$RELEASE_TAG" in
+            v*) git check-ref-format "refs/tags/$RELEASE_TAG" ;;
+            *) echo "error: releases require an existing v* tag" >&2; exit 1 ;;
+          esac
       - uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ env.RELEASE_TAG }}
       - name: Install XcodeGen
         run: brew install xcodegen
       - name: Build
-        run: Scripts/build_unsigned_ipa.sh
+        run: Scripts/build_unsigned_ipa.sh KaiselJBCheck KaiselIntegrityCheck
+      - name: Verify release assets
+        run: |
+          for scheme in KaiselJBCheck KaiselIntegrityCheck; do
+            files=(dist/"$scheme"-*-unsigned.ipa)
+            test "${#files[@]}" -eq 1
+            test -s "${files[0]}"
+            unzip -tq "${files[0]}"
+          done
+          cd dist
+          shasum -a 256 -c SHA256SUMS.txt
       - uses: actions/upload-artifact@v4
         with:
           name: kaisel-unsigned-ipas
-          path: dist/*
+          path: |
+            dist/KaiselJBCheck-*-unsigned.ipa
+            dist/KaiselIntegrityCheck-*-unsigned.ipa
+            dist/SHA256SUMS.txt
+          if-no-files-found: error
       - name: Publish GitHub release
-        if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/*
+          tag_name: ${{ env.RELEASE_TAG }}
+          files: |
+            dist/KaiselJBCheck-*-unsigned.ipa
+            dist/KaiselIntegrityCheck-*-unsigned.ipa
+            dist/SHA256SUMS.txt
+          fail_on_unmatched_files: true
           generate_release_notes: true
           body: |
+            Download either app from the assets below:
+            - `KaiselJBCheck-<version>-unsigned.ipa` — Kaisel JB Check
+            - `KaiselIntegrityCheck-<version>-unsigned.ipa` — Kaisel Integrity Check
+            - `SHA256SUMS.txt` — SHA-256 checksums for both apps
+
             Unsigned IPAs for Impactor, Sideloadly or AltStore. They are signed with your Apple ID on install.
             See [Sideloading](https://github.com/0xdhanesh/Kaisel/blob/main/docs/SIDELOADING.md).
             Verify downloads with `shasum -a 256 -c SHA256SUMS.txt`.
