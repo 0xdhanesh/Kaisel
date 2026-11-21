@@ -12,11 +12,15 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ### Changed
 - README: version 1.3.1, lab results so far, roadmap from the gap analysis, and clearer limitations
-  (per-app hiding, dyld indicator).
+  (per-app hiding, dyld indicator). Lab results, limitations and roadmap now state the hidden RootHide case
+  as a miss, matching the screenshots.
 
 ### Lab
-- Dopamine + RootHide with the app hidden (iPhone9,3, iOS 15.8.2) now reports **Suspicious** on 1.3.1
-  (clean on 1.2). Result JSON not yet exported.
+- Dopamine + RootHide with the app hidden (iPhone9,3, iOS 15.8.2): an earlier 1.3.1 run read **Suspicious**,
+  but the latest runs read clean in both apps (Not jailbroken, Trusted 0). The hidden case is a miss.
+  Result JSON not yet exported.
+- Screenshots of the RootHide hidden and unhidden runs and the stock iPhone18,1 (iOS 27.2.1) run added
+  under `docs/images/lab/` and embedded in the README.
 - TrollStore installed with TrollInstallerX: detected by both apps.
 - Stock iOS 26 and iOS 27.2.1: clean on 1.3.1.
 

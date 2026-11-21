@@ -37,6 +37,9 @@ Prologue decoding is a heuristic. Apple can change the instruction sequences in 
 
 **Tested:** on Dopamine + RootHide (iPhone9,3, iOS 15.8.2), adding the app to RootHide's Blacklist made
 both apps report a clean device with zero signals (see the [lab record](../Lab/results/2026-11-21_iphone9-3_ios15.8.2_dopamine-roothide.md)).
+The latest 1.3.x runs ([screenshots](../README.md#evidence-dopamine--roothide-iphone93-ios-1582)) show the same:
+JB Check *Not jailbroken* and Integrity Check *Trusted 0*. The residual signals below did not fire, and an
+earlier *Suspicious* reading on 1.3.1 did not reproduce, so the hidden case is currently a miss.
 This is expected for a well-designed hider, and no in-app check can promise to beat it.
 
 Why it works: the hidden app gets **nothing injected** (no hooks to detect), the jailbreak root lives at a

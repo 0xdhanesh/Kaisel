@@ -44,7 +44,7 @@ It is **not** a certified product, it has no commercial-grade code obfuscation, 
 - **Injection and hooking.** Two independent loaded-image lists (dyld info vs `_dyld` API), tweak-injector libraries, inline trampoline decoding, GOT / fishhook rebinding, `__interpose`, Objective-C swizzling and syscall-stub integrity.
 - **Frida and debuggers.** Frida threads, D-Bus handshake probe, anonymous executable memory, `P_TRACED`, `CS_DEBUGGED`, exception ports and the parent process.
 - **App integrity.** Entitlement blob (TrollStore and ldid fingerprints), FairPlay `cryptid`, provisioning profile, team and bundle ID, `__TEXT` hash.
-- **Residual signals for hidden jailbreaks** (indicators, never conclusive on their own): dyld integrity where dyld runs from disk, userspace-reboot state, and a Keychain marker of an earlier conclusive result.
+- **Residual signals for hidden jailbreaks** (indicators, never conclusive on their own): dyld integrity where dyld runs from disk, userspace-reboot state, and a Keychain marker of an earlier conclusive result. None of them fired against RootHide's Blacklist in the latest lab runs (see below).
 - **One jailbreak rule everywhere.** `JailbreakEvidence` decides what is conclusive for JB Check, the full kit and the server, so the apps agree.
 - **Self-protection.** Runtime self-integrity snapshots, scattered inline guards, check-completion bookkeeping, randomised check order, a tamper-evident verdict and XOR-obfuscated indicator strings.
 - **Weighted scoring per domain.** Every signal is evidence with a weight; a damped noisy-OR produces device, runtime and app verdicts. Build and posture facts are informational unless you opt in.
@@ -54,17 +54,40 @@ It is **not** a certified product, it has no commercial-grade code obfuscation, 
 
 ## Lab results so far
 
-Real-device results recorded for 1.3.1. Details and earlier runs are in [docs/LAB.md](docs/LAB.md).
+Real-device results recorded for 1.3.x on 2026-11-21. Screenshots are below; details and earlier runs are in [docs/LAB.md](docs/LAB.md).
 
 | Device / iOS | Scenario | Result |
 |---|---|---|
-| iPhone9,3 (iPhone 7) / iOS 15.8.2 | Dopamine + RootHide, app **not hidden** | **Detected**: Jailbroken (RootHide injector `roothideinit.dylib`, package-manager URL scheme) |
-| iPhone9,3 / iOS 15.8.2 | Dopamine + RootHide, app **hidden** (Blacklist) | **Suspicious**. Version 1.2 reported a clean device here; residual signals added in 1.3 now raise it, but not to a conclusive verdict |
+| iPhone9,3 (iPhone 7) / iOS 15.8.2 | Dopamine + RootHide, app **not hidden** | **Detected**. JB Check: Jailbroken (conclusive: RootHide injector `roothideinit.dylib` loaded from the `.jbroot-*` path; indicator: `sileo://` URL scheme). Integrity Check: device Compromised 85, runtime Compromised 97, inline guard flags 2 |
+| iPhone9,3 / iOS 15.8.2 | Dopamine + RootHide, app **hidden** (Blacklist) | **Missed**. JB Check: Not jailbroken, no evidence, no indicators. Integrity Check: device Trusted 0, runtime Trusted 0, inline guard clean. An earlier 1.3.1 run read Suspicious; that did not reproduce in these runs |
 | Lab device (model and iOS not yet recorded) | TrollStore installed with TrollInstallerX | **Detected** by both apps |
 | Stock device / iOS 26 | Not jailbroken | **Clean**, no false positive |
-| Stock iPhone18,1 / iOS 27.2.1 | Not jailbroken | **Clean** in 1.3.1 (1.3.0 had a dyld false positive, fixed) |
+| Stock iPhone18,1 / iOS 27.2.1 | Not jailbroken | **Clean** in 1.3.1 (1.3.0 had a dyld false positive, fixed). JB Check: Not jailbroken; Integrity Check: Trusted 0 |
 
-Not yet tested: palera1n (rootful and rootless), Dopamine on A12+, frida-server and FridaGadget, Shadow-class hiding tweaks, iOS 16 to 18. Result JSON for the runs above has not yet been exported into `Lab/results/`.
+Not yet tested: palera1n (rootful and rootless), Dopamine on A12+, frida-server and FridaGadget, Shadow-class hiding tweaks, iOS 16 to 18. Result JSON for the runs above has not yet been exported into `Lab/results/`, so the hidden-case miss is recorded from screenshots only.
+
+### Evidence: Dopamine + RootHide, iPhone9,3, iOS 15.8.2
+
+The same two apps were run with RootHide's Blacklist toggles off (not hidden) and on (hidden). Dopamine itself stayed off the Blacklist.
+
+| Blacklist off (not hidden) | Blacklist on (hidden) |
+|---|---|
+| <img src="docs/images/lab/roothide-blacklist-off.png" width="240" alt="RootHide Blacklist with Kaisel Integrity Check and Kaisel JB Check toggled off"> | <img src="docs/images/lab/roothide-blacklist-on.png" width="240" alt="RootHide Blacklist with Kaisel Integrity Check and Kaisel JB Check toggled on"> |
+
+| | Not hidden: **detected** | Hidden: **missed** |
+|---|---|---|
+| **JB Check** | <img src="docs/images/lab/jb-check_iphone9-3_ios15.8.2_roothide-unhidden.png" width="240" alt="JB Check reporting Jailbroken, roothideinit.dylib loaded, sileo URL scheme"> | <img src="docs/images/lab/jb-check_iphone9-3_ios15.8.2_roothide-hidden.png" width="240" alt="JB Check reporting Not jailbroken with no evidence or indicators"> |
+| **Integrity Check** | <img src="docs/images/lab/integrity-check_iphone9-3_ios15.8.2_roothide-unhidden.png" width="240" alt="Integrity Check reporting device Compromised 85 and runtime Compromised 97"> | <img src="docs/images/lab/integrity-check_iphone9-3_ios15.8.2_roothide-hidden.png" width="240" alt="Integrity Check reporting device Trusted 0 and runtime Trusted 0"> |
+
+Unhidden, RootHide still injects `roothideinit.dylib` into the app, and that single image is enough for a conclusive verdict. Hidden, nothing is injected, the jailbreak root sits at a random path, the package-manager URL schemes are filtered, and none of the 1.3 residual signals (`dyldModified`, `userspaceReboot`, `previouslyJailbroken`) fired. JB Check also showed no **Reset jailbreak history** button in the hidden run, so the Keychain marker was not seen there.
+
+### Evidence: stock iPhone18,1, iOS 27.2.1 (not jailbroken)
+
+| JB Check | Integrity Check |
+|---|---|
+| <img src="docs/images/lab/jb-check_iphone18-1_ios27.2.1_stock.png" width="240" alt="JB Check on a stock iPhone18,1 reporting Not jailbroken"> | <img src="docs/images/lab/integrity-check_iphone18-1_ios27.2.1_stock.png" width="240" alt="Integrity Check on a stock iPhone18,1 reporting Trusted 0"> |
+
+No false positive: no evidence or indicators, and device and runtime both Trusted 0 with Developer Mode on.
 
 ## Quick start
 
@@ -143,7 +166,7 @@ Full guide: [Integration](docs/INTEGRATION.md).
 
 Any check running on a device the attacker controls can be bypassed. Kaisel makes bypassing more expensive and more visible, and gives your server verifiable evidence. It is not proof.
 
-- **Per-app hiding is the hardest case.** With the app in RootHide's Blacklist the result is *Suspicious*, not *Jailbroken*: the app runs with nothing injected and the jailbreak root at a random path. Treat "Not jailbroken" as *no evidence*, not as proof of a stock device.
+- **Per-app hiding is currently a miss.** With the app in RootHide's Blacklist both apps read clean (Not jailbroken, Trusted 0; see the screenshots above): the app runs with nothing injected, the jailbreak root is at a random path and the URL schemes are filtered. An earlier run read *Suspicious*, but it did not reproduce. Treat "Not jailbroken" as *no evidence*, not as proof of a stock device, and keep the decision on the server: its per-key history targets the "run once, then hide" pattern but has not yet been lab-verified.
 - **dyld integrity is an indicator, not proof.** From iOS 16 dyld runs from its copy in the shared cache, which differs from `/usr/lib/dyld` on any stock phone. Since 1.3.1 in-cache dyld is skipped, large differences are ignored, and `dyldModified` can never make a device "Jailbroken" on its own. In practice it only has a chance on iOS 15.
 - **Kernel-level hiding** defeats filesystem and code-signing checks, because the kernel itself answers. In-process signals (images, hooks, threads, memory, entitlements) still apply.
 - **Apple has no "this device is not jailbroken" attestation.** App Attest proves a genuine app on real hardware, not a stock OS.
@@ -153,12 +176,12 @@ Read [Limitations](docs/LIMITATIONS.md) before relying on Kaisel for any securit
 
 ## Roadmap
 
-Candidate improvements from the gap analysis in [Pentesting iOS RASP § 11](docs/Pentesting%20iOS%20RASP.md#11-proposed-kaisel-tweaks). None is implemented yet; each will be validated on stock iOS 15 to 27 before it is scored.
+Candidate improvements from the gap analysis in [Pentesting iOS RASP § 11](docs/Pentesting%20iOS%20RASP.md#11-proposed-kaisel-tweaks). None is implemented yet; each will be validated on stock iOS 15 to 27 before it is scored. Per-app hiding is the priority, because the RootHide Blacklist case is a miss today.
 
 | Area | Item |
 |---|---|
 | Quick wins | Hardware breakpoint / watchpoint detection from debug registers · full code-signing flag profile · kernel task-port probe for older jailbreaks · Apple-Silicon-Mac and virtual-device signals · report to the server by default rather than blocking locally |
-| Hidden and renamed jailbreaks | Mount-table enumeration · build manifest of load commands and bundled frameworks (catches a renamed Frida Gadget inside the app bundle) · DeviceCheck "seen jailbroken" bits in the reference server |
+| Hidden and renamed jailbreaks (priority) | Re-test the 1.3 residual signals hidden, with result JSON exported, to see why none fired · mount-table enumeration · build manifest of load commands and bundled frameworks (catches a renamed Frida Gadget inside the app bundle) · DeviceCheck "seen jailbroken" bits in the reference server |
 | Instrumentation | Mach-O header scan of anonymous executable memory · Kaisel self-`__TEXT` hash · new-thread inventory |
 | Server | `AppTransaction` (StoreKit 2) verification · transaction-bound nonces · App Attest receipt risk metric · report consistency checks |
 | Research (lab only first) | Sandbox-policy probes · boot-session timeline per key · sysctl surface fingerprint |
