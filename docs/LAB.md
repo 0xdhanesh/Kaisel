@@ -20,14 +20,25 @@ Run these on authorised test devices only. Record the signals each scenario prod
 | TrollStore install | `suspiciousEntitlement` (device), `binaryDecrypted` (app). |
 | **Tested:** stock iPhone18,1, iOS 27.2.1, Xcode install (v1.0) | v1.0 wrongly reported **Compromised 91**. The causes were build-context signals (`cryptid=0`, `get-task-allow`, provisioning profile), Developer Mode, the `apple-magnifier` false positive and one anonymous r-x region (`0x100fe4000+0xc000`). v1.1 made these informational or removed them. The jailbreak-only app then reported **Not jailbroken** on the same device. If an anonymous executable region still appears on a stock device, open a false-positive issue with the `tag=`/`share=` details shown in the signal. |
 
+## Recorded runs
+
+| Date | Device / iOS | Scenario | Result |
+|---|---|---|---|
+| 2026-11-21 | iPhone18,1 / 27.2.1 | Stock | v1.0 false positive, fixed in 1.1; JB Check then reported **Not jailbroken** |
+| 2026-11-21 | iPhone9,3 / 15.8.2 | Dopamine + RootHide, app not hidden | JB Check **PASS** (`roothideinit.dylib`). Full app device verdict inconsistent, fixed in 1.3.0 |
+| 2026-11-21 | iPhone9,3 / 15.8.2 | Dopamine + RootHide, app hidden (Blacklist) | **FAIL**: both apps clean in 1.2. New checks in 1.3.0 to be re-tested |
+
+Details: [Lab/results/2026-11-21_iphone9-3_ios15.8.2_dopamine-roothide.md](../Lab/results/2026-11-21_iphone9-3_ios15.8.2_dopamine-roothide.md).
+
 ## Test status
 
 | Version | What has been verified |
 |---|---|
 | 1.0 | Compiled in Xcode and ran on a stock iPhone18,1 (iOS 27.2.1). That run drove the false-positive fixes in 1.1. |
 | 1.1 | Jailbreak-only app ran on the same device and reported **Not jailbroken**. |
+| 1.3 | Server tests pass (12). C changes pass `clang -Wall -Wextra -fsyntax-only` against stub headers, including the arm64 paths. Swift changes are not compiled here; CI on GitHub builds them. |
 | 1.2 | C core passes `clang -Wall -Wextra -fsyntax-only` (x86_64 and AArch64, stub headers). The reference server's 9 tests and an HTTP smoke test pass. The Swift changes in 1.2 (self-integrity, rules, App Attest opt-in, Kaisel rename) are verified by the CI build on GitHub, not yet on a device. |
 
-**Not yet tested on any jailbroken device.** Every jailbreak, hiding-tweak and Frida expectation in
+**Only one jailbroken device so far** (see Recorded runs). Every other jailbreak, hiding-tweak and Frida expectation in
 [`Lab/expected.json`](../Lab/expected.json) is a hypothesis until the [lab checklist](../Lab/LAB_CHECKLIST.md)
 has been run. Results are welcome through the *Detection gap or lab result* issue template.

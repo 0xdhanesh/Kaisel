@@ -16,6 +16,10 @@
 #include <mach-o/dyld.h>
 #include <mach-o/dyld_images.h>
 #include <mach-o/getsect.h>
+#include <mach-o/fat.h>
+#include <mach-o/loader.h>
+#include <fcntl.h>
+#include <string.h>
 #include <os/lock.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -159,6 +163,121 @@ static void report_image(rasp_findings_t *out, const char *path, const char *bun
         rasp_add(out, c, c == RASP_F_SUSPICIOUS_IMAGE ? 95 : 70, "%s", d);
 }
 
+// ---------------------------------------------------------------------------
+// dyld integrity
+//
+// Per-app hiding (RootHide's Blacklist, Choicy, Shadow) keeps tweaks out of the
+// app, but a jailbreak that patches or replaces dyld to bypass library
+// validation affects every process it spawns, hidden or not. dyld is not in
+// the shared cache and its __TEXT is never rebased, so the bytes in memory
+// must equal /usr/lib/dyld on disk when the build (LC_UUID) matches.
+// ---------------------------------------------------------------------------
+#if defined(__aarch64__)
+typedef struct { const struct section_64 *text; uint64_t text_vmaddr; const uint8_t *uuid; } dyld_layout_t;
+
+static bool dyld_lc_visit(const struct load_command *lc, void *vctx) {
+    dyld_layout_t *L = (dyld_layout_t *)vctx;
+    if (lc->cmd == LC_UUID) L->uuid = ((const struct uuid_command *)lc)->uuid;
+    if (lc->cmd == LC_SEGMENT_64) {
+        const struct segment_command_64 *seg = (const struct segment_command_64 *)lc;
+        if (strncmp(seg->segname, "__TEXT", 16) == 0) {
+            L->text_vmaddr = seg->vmaddr;
+            const struct section_64 *s = (const struct section_64 *)(seg + 1);
+            for (uint32_t i = 0; i < seg->nsects; i++)
+                if (strncmp(s[i].sectname, "__text", 16) == 0) L->text = &s[i];
+        }
+    }
+    return true;
+}
+
+static uint32_t be32(uint32_t v) { return __builtin_bswap32(v); }
+
+// Finds the slice of `fd` matching cputype/subtype and its LC_UUID.
+static bool dyld_file_slice(int fd, const struct mach_header_64 *mem, uint64_t *slice, uint8_t uuid[16]) {
+    uint8_t hdr[4096]; int err = 0;
+    if (rasp_raw_pread(fd, hdr, sizeof hdr, 0, &err) < (long)sizeof(struct mach_header_64)) return false;
+    *slice = 0;
+    uint32_t magic; memcpy(&magic, hdr, 4);
+    if (magic == FAT_CIGAM) {
+        uint32_t n = be32(((const struct fat_header *)hdr)->nfat_arch);
+        const struct fat_arch *fa = (const struct fat_arch *)(hdr + sizeof(struct fat_header));
+        bool found = false;
+        for (uint32_t i = 0; i < n && (const uint8_t *)(fa + i + 1) <= hdr + sizeof hdr; i++) {
+            if ((cpu_type_t)be32((uint32_t)fa[i].cputype) == mem->cputype &&
+                ((cpu_subtype_t)be32((uint32_t)fa[i].cpusubtype) & ~CPU_SUBTYPE_MASK) ==
+                    (mem->cpusubtype & ~CPU_SUBTYPE_MASK)) {
+                *slice = be32(fa[i].offset); found = true; break;
+            }
+        }
+        if (!found) return false;
+        if (rasp_raw_pread(fd, hdr, sizeof hdr, (int64_t)*slice, &err) < (long)sizeof(struct mach_header_64)) return false;
+    }
+    const struct mach_header_64 *fh = (const struct mach_header_64 *)hdr;
+    if (fh->magic != MH_MAGIC_64 || fh->sizeofcmds > sizeof hdr - sizeof *fh) return false;
+    const uint8_t *p = (const uint8_t *)(fh + 1);
+    for (uint32_t i = 0; i < fh->ncmds; i++) {
+        const struct load_command *lc = (const struct load_command *)p;
+        if (lc->cmdsize < sizeof *lc || p + lc->cmdsize > hdr + sizeof hdr) return false;
+        if (lc->cmd == LC_UUID) { memcpy(uuid, ((const struct uuid_command *)lc)->uuid, 16); return true; }
+        p += lc->cmdsize;
+    }
+    return false;
+}
+
+static void check_dyld(rasp_findings_t *out, const struct dyld_all_image_infos *all) {
+    const struct mach_header_64 *mh = (const struct mach_header_64 *)all->dyldImageLoadAddress;
+    if (!mh || mh->magic != MH_MAGIC_64) return;
+    char path[32];
+    if (!rasp_obf_decode(RASP_MISC(RASP_MISC_DYLD), path, sizeof path)) return;
+
+    // dyld_all_image_infos v15+ records the file dyld was loaded from.
+    // Cryptex and /System copies are Apple-signed locations, not evidence.
+    if (all->version >= 15 && all->dyldPath && strcmp(all->dyldPath, path) != 0 &&
+        !has_prefix_obf(all->dyldPath, RASP_MISC_CRYPTEXES) && !has_prefix_obf(all->dyldPath, RASP_MISC_SYSTEM))
+        rasp_add(out, RASP_F_DYLD_MODIFIED, 90, "dyld loaded from %.160s", all->dyldPath);
+
+    dyld_layout_t L = { NULL, 0, NULL };
+    rasp_for_each_load_command(mh, dyld_lc_visit, &L);
+    if (!L.text || !L.uuid || L.text->size == 0 || L.text->size > (64u << 20)) goto done;
+
+    int err = 0;
+    int fd = rasp_raw_open(path, O_RDONLY, 0, &err);
+    if (fd < 0) goto done;                         // unreadable: no evidence either way
+    uint64_t slice = 0; uint8_t fuuid[16];
+    // A different build on disk (e.g. an OS that ships dyld elsewhere) is not
+    // evidence; only compare bytes when the UUIDs match.
+    if (dyld_file_slice(fd, mh, &slice, fuuid) && memcmp(fuuid, L.uuid, 16) == 0) {
+        const uint8_t *mem = (const uint8_t *)mh + (L.text->addr - L.text_vmaddr);
+        uint8_t buf[4096];
+        uint64_t size = L.text->size, first = UINT64_MAX;
+        uint32_t diff = 0, brk = 0;
+        for (uint64_t off = 0; off < size; off += sizeof buf) {
+            size_t n = (size_t)((size - off) < sizeof buf ? (size - off) : sizeof buf);
+            if (rasp_raw_pread(fd, buf, n, (int64_t)(slice + L.text->offset + off), &err) != (long)n) { diff = 0; break; }
+            if (memcmp(buf, mem + off, n) == 0) continue;
+            for (size_t w = 0; w + 4 <= n; w += 4) {
+                uint32_t a, b;
+                memcpy(&a, buf + w, 4); memcpy(&b, mem + off + w, 4);
+                if (a == b) continue;
+                if (first == UINT64_MAX) first = off + w;
+                diff++;
+                if ((b & 0xFFE0001Fu) == 0xD4200000u) brk++;
+            }
+        }
+        if (diff && diff == brk && brk <= 8)
+            // A debugger (lldb sets breakpoints inside dyld for image events).
+            rasp_add(out, RASP_F_BREAKPOINT_INSN, 80, "dyld: %u software breakpoint(s), first at +0x%llx",
+                     brk, (unsigned long long)first);
+        else if (diff)
+            rasp_add(out, RASP_F_DYLD_MODIFIED, 95, "dyld __text differs from disk: %u words, first at +0x%llx",
+                     diff, (unsigned long long)first);
+    }
+    rasp_raw_close(fd);
+done:
+    rasp_secure_zero(path, sizeof path);
+}
+#endif
+
 void rasp_check_images(const rasp_context_t *ctx, rasp_findings_t *out) {
     RASP_BEGIN(out, RASP_CHECK_IMAGES);
     const char *bundle = ctx ? ctx->bundle_path : NULL;
@@ -197,6 +316,9 @@ void rasp_check_images(const rasp_context_t *ctx, rasp_findings_t *out) {
     if (count_b && count_b > count_a)
         rasp_add(out, RASP_F_IMAGE_LIST_MISMATCH, 90, "dyld_all_image_infos=%u _dyld_image_count=%u", count_b, count_a);
 
+#if defined(__aarch64__)
+    if (all) check_dyld(out, all);
+#endif
     RASP_END(out, RASP_CHECK_IMAGES);
 }
 

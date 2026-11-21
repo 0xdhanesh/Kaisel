@@ -210,6 +210,7 @@ LISTS = {
         "/usr/lib/dyld",                             # 22
         "/private/var/mobile/Library/Preferences/",  # 23 sandbox read probe dir
         "/var/jb",                                   # 24 rootless jailbreak root symlink
+        "kern.userspacereboottime",                  # 25 set by a userspace reboot (Dopamine does one)
     ],
     # Exported libc / libsystem functions whose prologue and binding we verify.
     # Prefixed "S:" means the function is a raw syscall stub that must contain

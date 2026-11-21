@@ -59,6 +59,8 @@ enum {
     RASP_F_JB_ROOT_SYMLINK        = 105,
     RASP_F_LIBC_SYSCALL_MISMATCH  = 108,
     RASP_F_CANARY_FAILED          = 109,
+    RASP_F_DYLD_MODIFIED          = 110,
+    RASP_F_USERSPACE_REBOOT       = 111,
     // Sandbox
     RASP_F_SANDBOX_WRITE          = 120,
     RASP_F_SANDBOX_FORK           = 121,

@@ -28,6 +28,20 @@ python3 server.py --app-id ABCDE12345.com.dhanesh.kaisel.integritycheck \
 
 In Kaisel Integrity Attest, enter `http://<your-mac-ip>:8080`, tap **Enrol App Attest** once, then tap **Verify with server**. In Kaisel Integrity Check (free Apple ID) the enrol button is disabled and **Verify with server** sends a Secure Enclave-only seal, so start the server with `--no-require-app-attest`. The response shows `decision`, `reasons`, the server's own device, runtime and app verdicts, and the App Attest and Secure Enclave status. App Attest needs a paid developer team (it is not available on a free personal team) and a real device. Without it the server answers `deny` (use `--no-require-app-attest` for `step_up` instead).
 
+### Remembering jailbroken devices
+
+The reference server applies the same jailbreak rule as the apps: conclusive evidence in any domain sets
+the device verdict to `compromised` and lists it in `device.jailbreakEvidence`. It also keeps a
+per-key history in its store (`_history`), keyed by the Secure Enclave public key (or the App Attest key).
+When a key that once sent conclusive evidence later sends a clean report, for example after the app was
+hidden with RootHide, the device verdict is raised to at least `high` and the reason says when the jailbreak
+was first seen.
+
+For production, also use **DeviceCheck**: call `IntegrityKit.deviceCheckToken()`, and from your server set
+one of the two per-device bits (`update_two_bits`) when conclusive evidence arrives. The bits are stored by
+Apple per device and per developer team, survive app deletion and hiding, and are reset only when you
+reset them. Query them (`query_two_bits`) on every sensitive request.
+
 ## Server-side verification
 
 1. Issue a single-use nonce with a short TTL, bound to the session.

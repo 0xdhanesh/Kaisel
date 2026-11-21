@@ -11,7 +11,7 @@ import CIntegrityCore
 /// let sealed = try await kit.seal(report, serverNonce: nonce)   // send to backend
 /// ```
 public final class IntegrityKit: @unchecked Sendable {
-    public static let sdkVersion = "1.2.0"
+    public static let sdkVersion = "1.3.0"
 
     public let configuration: IntegrityConfiguration
     public var scorer = RiskScorer()
@@ -109,11 +109,25 @@ public final class IntegrityKit: @unchecked Sendable {
         raw.append(.init(.simulator, 100, "targetEnvironment(simulator)"))
         #endif
 
-        let signals = Self.requireCorroboration(makeSignals(raw))
+        var signals = Self.requireCorroboration(makeSignals(raw))
+        if let first = signals.first(where: JailbreakEvidence.isConclusive) {
+            JailbreakMemory.remember(RawSignal(first.code, first.confidence, first.detail))
+        } else if let past = JailbreakMemory.recall() {
+            signals = makeSignals(raw + [past])
+            signals = Self.requireCorroboration(signals)
+        }
         let posture = PostureProbe.collect(osVersion: sys.osVersion, osMajor: sys.osMajor, model: sys.model,
                                            devModeSysctl: cf.devmode_sysctl, csFlags: cf.cs_flags,
                                            ddiMounted: raw.contains { $0.code == .developerDiskImageMounted })
-        let device = scorer.assess(.device, signals)
+        var device = scorer.assess(.device, signals)
+        // Same rule as Kaisel JB Check: conclusive jailbreak evidence in any
+        // domain (for example a tweak injector such as roothideinit.dylib,
+        // which is scored under runtime) makes the device compromised.
+        if signals.contains(where: JailbreakEvidence.isConclusive), device.verdict < .compromised {
+            device = DomainAssessment(domain: .device,
+                                      score: Swift.max(device.score, scorer.thresholds.compromised),
+                                      verdict: .compromised, categories: device.categories)
+        }
         let runtime = scorer.assess(.runtime, signals)
         let app: DomainAssessment? = configuration.expectedDistribution == nil ? nil : scorer.assess(.app, signals)
         var worst: DomainAssessment = device

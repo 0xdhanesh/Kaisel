@@ -23,6 +23,29 @@ APP_INFORMATIONAL_BY_DIST = {
 }
 
 
+# Same rule as JailbreakEvidence in the SDK: evidence a stock, sealed iOS cannot produce.
+CONCLUSIVE_NAMES = {
+    "jailbreakPathPresent", "rootlessJailbreakRoot", "symlinkedSystemDirectory", "rootVolumeWritable",
+    "sandboxWrite", "sandboxFork", "libcSyscallMismatch", "imageListMismatch", "envJailbreak",
+    "suspiciousEntitlement", "bundlePathUnexpected", "dyldModified",
+}
+CONCLUSIVE = {c for c, m in CODES.items() if m["name"] in CONCLUSIVE_NAMES}
+INJECTOR_CODES = {c for c, m in CODES.items() if m["name"] in ("suspiciousImage", "imageAddedAtRuntime")}
+
+
+def _is_tweak_injector(detail: str) -> bool:
+    d = detail.lower()
+    return not ("frida" in d or "gadget" in d or "gum-js" in d)
+
+
+def is_conclusive(code: str, confidence: int, detail: str) -> bool:
+    if code in INJECTOR_CODES:
+        if CODES[code]["name"] == "imageAddedAtRuntime" and confidence < 95:
+            return False
+        return _is_tweak_injector(detail)
+    return code in CONCLUSIVE
+
+
 @dataclass
 class Policy:
     expected_distribution: str | None = "appStore"   # None = app domain informational
@@ -89,9 +112,29 @@ def assess(signals: list[dict], policy: Policy) -> dict:
         hard = [x for x in sigs if x["hard"] and x["confidence"] >= policy.hard_confidence_floor]
         out[domain] = dict(score=score, verdict=_verdict(score, hard, policy),
                            signals=[{k: x[k] for k in ("code", "title", "detail", "confidence")} for x in sigs])
+    # A conclusive jailbreak signal in any domain (a tweak injector is scored
+    # under runtime) makes the device compromised, as in Kaisel JB Check.
+    evidence = [x for d in ("device", "runtime") for x in scored[d]
+                if is_conclusive(x["code"], x["confidence"], x["detail"])]
+    out["device"]["jailbreakEvidence"] = [{k: x[k] for k in ("code", "title", "detail")} for x in evidence]
+    if evidence:
+        out["device"]["verdict"] = "compromised"
+        out["device"]["score"] = max(out["device"]["score"], policy.thresholds[3])
     if policy.expected_distribution is None:
         out["app"]["verdict"] = "not_enforced"
     return out
+
+
+def apply_history(assessment: dict, first_seen: str | None) -> list[str]:
+    """Raises the device verdict to at least `high` when this device key was
+    seen jailbroken before but the current report is clean (for example after
+    the app was hidden with RootHide or Choicy). Returns extra reasons."""
+    dev = assessment["device"]
+    if not first_seen or dev["jailbreakEvidence"]:
+        return []
+    if VERDICTS.index(dev["verdict"]) < VERDICTS.index("high"):
+        dev["verdict"] = "high"
+    return [f"jailbreak previously seen for this device key ({first_seen})"]
 
 
 def decide(assessment: dict, app_attest: str, policy: Policy) -> tuple[str, list[str]]:

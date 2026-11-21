@@ -116,7 +116,25 @@ def verify_sealed(sealed: dict, challenge: bytes, store: Store, cfg) -> dict:
                         require_app_attest=cfg.require_app_attest,
                         debugger_expected=cfg.debugger_expected)
     assessment = pol.assess(report.get("signals", []), policy)
+
+    # Per-key history: a hidden app keeps its Keychain, so the same Secure
+    # Enclave key (or App Attest key) signs later, clean-looking reports.
+    hist_key = None
+    if result["secureEnclave"].startswith(("verified", "signature valid")):
+        hist_key = "se:" + sealed["secureEnclavePublicKey"]
+    elif result["appAttest"] == "verified":
+        hist_key = "aa:" + key_id
+    extra_reasons: list = []
+    if hist_key:
+        with store.lock:
+            history = store.devices.setdefault("_history", {})
+            if assessment["device"]["jailbreakEvidence"]:
+                history.setdefault(hist_key, time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()))
+                store.save()
+            else:
+                extra_reasons = pol.apply_history(assessment, history.get(hist_key))
     decision, reasons = pol.decide(assessment, result["appAttest"], policy)
+    reasons += extra_reasons
     return {"decision": decision, "reasons": reasons, **result,
             "device": assessment["device"], "runtime": assessment["runtime"], "app": assessment["app"],
             "clientVerdict": report.get("verdict"), "rulesVersion": report.get("rulesVersion"),

@@ -122,6 +122,45 @@ There is **no public API** for Developer Mode. The kit uses three proxies and re
 
 Developer Mode is reported in `posture` and as informational signals. It never affects a score or verdict.
 
+### dyld integrity (`rasp_images.c`)
+
+dyld is not part of the shared cache and its `__TEXT` is never rebased, so its code in memory must match
+`/usr/lib/dyld` on disk. The check finds dyld through `dyld_all_image_infos`, confirms the file has the
+same `LC_UUID`, then compares `__TEXT,__text` byte for byte using raw `open`/`pread`. It also checks the
+path dyld was loaded from (`dyldPath`, Apple-signed cryptex and `/System` locations allowed). Differences
+that are only `brk` instructions (at most 8) are reported as a debugger breakpoint, because lldb sets
+breakpoints inside dyld. Any other difference is `dyldModified` (conclusive), because a jailbreak that hooks
+dyld affects every process, including ones hidden by a per-app hider.
+
+### Userspace reboot (`rasp_fs.c`)
+
+Dopamine restarts userspace after the kernel exploit. `kern.userspacereboottime` is then non-zero while
+the kernel keeps its original boot time. Reported as the indicator `userspaceReboot` because stock iOS can
+restart userspace too.
+
+### Jailbreak memory (`JailbreakMemory.swift`)
+
+When conclusive evidence is seen, a Keychain item records the first sighting. A later clean run reports
+`previouslyJailbroken` as an indicator. Keychain items survive app deletion and per-app hiding, but not an
+erase. The server-side per-key history is the tamper-resistant version.
+
+### One jailbreak rule for both apps
+
+`JailbreakEvidence` decides what is conclusive. `JailbreakDetector` uses it for the JB Check status, and
+`IntegrityKit` uses it to set the **device** verdict to `compromised` when conclusive evidence appears in
+any domain. A tweak injector such as `roothideinit.dylib` is scored in the runtime domain but proves the
+device is jailbroken, so both apps now agree.
+
+### Syscall stub check: reliability
+
+`syscallStubAltered` (304) fires when a raw syscall wrapper (`csops`, `ptrace`, `stat` and others) has no
+`svc #0x80` in its first 8 instructions. On a stock iOS 15 to 27 system these functions are direct stubs,
+so a missing trap means someone rewrote the entry. In the RootHide lab run it fired only while tweaks were
+injected and disappeared when the app was hidden, which is consistent with a real hook. It stays an
+**indicator** (weight 0.70, confidence lowered to 60 in 1.3.0) and is not conclusive, because Apple can turn
+a stub into a wrapper in a future release. Since 1.3.0 the check follows a same-image branch at the entry
+before deciding, and records the first four instruction words in the detail so lab runs can be diagnosed.
+
 ## Risk scoring
 
 Every signal belongs to one **domain**, and each domain gets its own score and verdict:

@@ -95,6 +95,22 @@
   "title": "Control probe failed",
   "weight": 0.8
  },
+ "110": {
+  "category": "tamper",
+  "domain": "device",
+  "hard": true,
+  "name": "dyldModified",
+  "title": "dyld modified or replaced (jailbreak loader hook)",
+  "weight": 0.95
+ },
+ "111": {
+  "category": "jailbreakArtefact",
+  "domain": "device",
+  "hard": false,
+  "name": "userspaceReboot",
+  "title": "Userspace reboot since kernel boot",
+  "weight": 0.4
+ },
  "120": {
   "category": "sandbox",
   "domain": "device",
@@ -430,5 +446,13 @@
   "name": "textHashMismatch",
   "title": "__TEXT hash differs from build",
   "weight": 0.9
+ },
+ "908": {
+  "category": "jailbreakArtefact",
+  "domain": "device",
+  "hard": false,
+  "name": "previouslyJailbroken",
+  "title": "Jailbreak seen on this device before",
+  "weight": 0.6
  }
 }

@@ -141,6 +141,35 @@ class PolicyTests(unittest.TestCase):
         self.assertEqual(pol.decide(pol.assess(DOPAMINE, p), "verified", p)[0], "deny")
         self.assertIn(pol.assess(FRIDA, p)["runtime"]["verdict"], ("high", "compromised"))
 
+    def test_roothide_unhidden_device_is_compromised(self):
+        # Lab: iPhone9,3, iOS 15.8.2, Dopamine + RootHide, app not hidden.
+        signals = [
+            {"code": 200, "confidence": 95, "detail": "/var/containers/Bundle/Application/.jbroot-0/usr/lib/roothideinit.dylib"},
+            {"code": 304, "confidence": 70, "detail": "csops: no svc #0x80 in first 8 insns"},
+            {"code": 905, "confidence": 80, "detail": "sileo://"},
+        ]
+        p = pol.Policy(expected_distribution=None, require_app_attest=False)
+        a = pol.assess(signals, p)
+        self.assertEqual(a["device"]["verdict"], "compromised")
+        self.assertEqual(len(a["device"]["jailbreakEvidence"]), 1)
+        self.assertEqual(pol.decide(a, "missing", p)[0], "deny")
+
+    def test_frida_gadget_alone_is_not_a_jailbreak(self):
+        p = pol.Policy(expected_distribution=None)
+        a = pol.assess([{"code": 200, "confidence": 95, "detail": "/x/FridaGadget.dylib"}], p)
+        self.assertEqual(a["device"]["jailbreakEvidence"], [])
+        self.assertNotEqual(a["device"]["verdict"], "compromised")
+
+    def test_history_flags_hidden_rerun(self):
+        # Same key, later report is clean because the app was hidden.
+        p = pol.Policy(expected_distribution=None, require_app_attest=False)
+        a = pol.assess([], p)
+        self.assertEqual(a["device"]["verdict"], "trusted")
+        reasons = pol.apply_history(a, "2026-11-21T12:00:00Z")
+        self.assertEqual(a["device"]["verdict"], "high")
+        self.assertTrue(reasons)
+        self.assertEqual(pol.decide(a, "missing", p)[0], "deny")
+
     def test_missing_app_attest_denied_when_required(self):
         p = pol.Policy(expected_distribution=None, require_app_attest=True)
         self.assertEqual(pol.decide(pol.assess([], p), "missing", p)[0], "deny")

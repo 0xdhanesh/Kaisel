@@ -131,3 +131,9 @@ public struct IntegrityReport: Codable, Hashable, Sendable {
         return try enc.encode(self)
     }
 }
+
+public extension IntegrityReport {
+    /// Signals that prove a jailbreak under the same rule Kaisel JB Check uses.
+    /// Non-empty means the device verdict is `.compromised`.
+    var jailbreakEvidence: [Signal] { signals.filter(JailbreakEvidence.isConclusive) }
+}

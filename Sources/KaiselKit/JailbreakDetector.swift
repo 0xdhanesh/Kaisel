@@ -33,6 +33,47 @@ public struct JailbreakResult: Codable, Hashable, Sendable {
     public let checksRun: [String]
 }
 
+/// The single rule that decides whether evidence proves a jailbreak. Used by
+/// `JailbreakDetector` (Kaisel JB Check) and by `IntegrityKit` for the device
+/// verdict, so both apps always agree.
+public enum JailbreakEvidence {
+    /// Codes that a stock, sealed iOS cannot produce.
+    public static let conclusiveCodes: Set<FindingCode> = [
+        .jailbreakPathPresent, .rootlessJailbreakRoot, .symlinkedSystemDirectory, .rootVolumeWritable,
+        .sandboxWrite, .sandboxFork, .libcSyscallMismatch, .imageListMismatch, .envJailbreak,
+        .suspiciousEntitlement, .bundlePathUnexpected, .dyldModified,
+    ]
+    /// Indirect evidence only.
+    public static let indicatorCodes: Set<FindingCode> = [
+        .jailbreakPathErrnoOracle, .rootVolumeNotSealed, .sandboxRead, .unexpectedImagePath,
+        .interposeSection, .inlineHook, .symbolRebound, .objcSwizzled, .syscallStubAltered,
+        .symbolForeignImage, .envInjection, .envGetenvMismatch, .jailbreakURLScheme, .canaryFailed,
+        .checkSuppressed, .userspaceReboot, .previouslyJailbroken,
+    ]
+
+    /// Tweak-injection libraries (Substrate, ElleKit, TweakInject, systemhook,
+    /// RootHide's roothideinit) prove a jailbreak; Frida/FridaGadget does not,
+    /// because it can be embedded in a re-signed app on a stock phone.
+    public static func isTweakInjector(_ detail: String) -> Bool {
+        let d = detail.lowercased()
+        return !(d.contains("frida") || d.contains("gadget") || d.contains("gum-js"))
+    }
+
+    /// True when this one signal proves the device is jailbroken.
+    public static func isConclusive(_ s: Signal) -> Bool {
+        if s.informational { return false }
+        switch s.code {
+        case .suspiciousImage:
+            return isTweakInjector(s.detail)
+        case .imageAddedAtRuntime:
+            // 95 = classified as a known injection library (see IntegrityKit.newlyLoadedImages()).
+            return s.confidence >= 95 && isTweakInjector(s.detail)
+        default:
+            return conclusiveCodes.contains(s.code)
+        }
+    }
+}
+
 public final class JailbreakDetector: @unchecked Sendable {
     public var probeURLSchemes: Bool
     private let queue = DispatchQueue(label: "integritykit.jailbreak", qos: .userInitiated)
@@ -50,24 +91,8 @@ public final class JailbreakDetector: @unchecked Sendable {
         }
     }
 
-    static let conclusiveCodes: Set<FindingCode> = [
-        .jailbreakPathPresent, .rootlessJailbreakRoot, .symlinkedSystemDirectory, .rootVolumeWritable,
-        .sandboxWrite, .sandboxFork, .libcSyscallMismatch, .imageListMismatch, .envJailbreak,
-        .suspiciousEntitlement, .bundlePathUnexpected,
-    ]
-    static let indicatorCodes: Set<FindingCode> = [
-        .jailbreakPathErrnoOracle, .rootVolumeNotSealed, .sandboxRead, .unexpectedImagePath,
-        .interposeSection, .inlineHook, .symbolRebound, .objcSwizzled, .syscallStubAltered,
-        .symbolForeignImage, .envInjection, .envGetenvMismatch, .jailbreakURLScheme, .canaryFailed,
-        .checkSuppressed,
-    ]
-
-    /// Tweak-injection libraries prove a jailbreak; Frida/FridaGadget does not
-    /// (it can be embedded in a re-signed app on a stock phone).
-    private static func isTweakInjector(_ detail: String) -> Bool {
-        let d = detail.lowercased()
-        return !(d.contains("frida") || d.contains("gadget") || d.contains("gum-js"))
-    }
+    static var conclusiveCodes: Set<FindingCode> { JailbreakEvidence.conclusiveCodes }
+    static var indicatorCodes: Set<FindingCode> { JailbreakEvidence.indicatorCodes }
 
     public func checkSync() -> JailbreakResult {
         let started = Date()
@@ -87,12 +112,18 @@ public final class JailbreakDetector: @unchecked Sendable {
         var indicators: [RawSignal] = []
         for r in raw {
             if r.code == .suspiciousImage {
-                if Self.isTweakInjector(r.detail) { conclusive.append(r) } else { indicators.append(r) }
+                if JailbreakEvidence.isTweakInjector(r.detail) { conclusive.append(r) } else { indicators.append(r) }
             } else if Self.conclusiveCodes.contains(r.code) {
                 conclusive.append(r)
             } else if Self.indicatorCodes.contains(r.code) {
                 indicators.append(r)
             }
+        }
+
+        if let first = conclusive.first {
+            JailbreakMemory.remember(first)
+        } else if let past = JailbreakMemory.recall() {
+            indicators.append(past)
         }
 
         #if targetEnvironment(simulator)

@@ -10,6 +10,6 @@ enum ObfuscatedList {
     static let suspiciousEntitlements: Range<UInt16> = 107..<117
     static let urlSchemes: Range<UInt16> = 117..<123
     static let ddiPaths: Range<UInt16> = 123..<125
-    static let misc: Range<UInt16> = 125..<150
-    static let hookTargets: Range<UInt16> = 150..<176
+    static let misc: Range<UInt16> = 125..<151
+    static let hookTargets: Range<UInt16> = 151..<177
 }

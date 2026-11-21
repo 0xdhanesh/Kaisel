@@ -14,6 +14,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/wait.h>
+#include <sys/sysctl.h>
 
 // ---------------------------------------------------------------------------
 // Parent-directory calibration cache for the errno oracle.
@@ -128,6 +129,25 @@ void rasp_check_filesystem(const rasp_context_t *ctx, rasp_findings_t *out) {
             if (pl && strncmp(sfs.f_mntfromname, prefix, pl) != 0)
                 rasp_add(out, RASP_F_ROOT_NOT_SEALED, 60, "/ from %.96s", sfs.f_mntfromname);
             rasp_secure_zero(prefix, sizeof prefix);
+        }
+    }
+    // 5. Userspace reboot. Dopamine (and other jailbreaks that restart
+    //    userspace after the kernel exploit) leave kern.userspacereboottime
+    //    non-zero while the kernel keeps its original boot time. This survives
+    //    per-app hiding because nothing in the app's process is involved.
+    //    Stock iOS can also do this rarely, so it is an indicator only.
+    {
+        char name[40];
+        if (rasp_obf_decode(RASP_MISC(RASP_MISC_USERSPACE_REBOOT_SYSCTL), name, sizeof name)) {
+            uint64_t t = 0; size_t len = sizeof t;
+            if (sysctlbyname(name, &t, &len, NULL, 0) == 0 && len == sizeof t && t != 0) {
+                struct timeval bt = {0, 0}; size_t bl = sizeof bt; int err = 0;
+                int mib[2] = { CTL_KERN, KERN_BOOTTIME };
+                rasp_raw_sysctl(mib, 2, &bt, &bl, NULL, 0, &err);
+                rasp_add(out, RASP_F_USERSPACE_REBOOT, 70, "userspace reboot value %llu, kernel boot %ld",
+                         (unsigned long long)t, (long)bt.tv_sec);
+            }
+            rasp_secure_zero(name, sizeof name);
         }
     }
     RASP_END(out, RASP_CHECK_FILESYSTEM);

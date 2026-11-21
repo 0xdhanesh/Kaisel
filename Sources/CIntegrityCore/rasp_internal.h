@@ -34,6 +34,7 @@
 #define RASP_SYS_access      33
 #define RASP_SYS_getppid     39
 #define RASP_SYS_readlink    58
+#define RASP_SYS_pread       153
 #define RASP_SYS_csops       169
 #define RASP_SYS___sysctl    202
 #define RASP_SYS_stat64      338
@@ -91,6 +92,9 @@ RASP_INLINE int rasp_raw_close(int fd)                                   { int e
 RASP_INLINE int rasp_raw_unlink(const char *p, int *err)                 { return (int)rasp_sys1(RASP_SYS_unlink, p, err); }
 RASP_INLINE long rasp_raw_readlink(const char *p, char *buf, size_t n, int *err) { return rasp_sys3(RASP_SYS_readlink, p, buf, n, err); }
 RASP_INLINE int rasp_raw_statfs(const char *p, struct statfs *s, int *err) { return (int)rasp_sys2(RASP_SYS_statfs64, p, s, err); }
+RASP_INLINE long rasp_raw_pread(int fd, void *buf, size_t n, int64_t off, int *err) {
+    return rasp_sys4(RASP_SYS_pread, fd, buf, n, off, err);
+}
 RASP_INLINE int rasp_raw_getpid(void)  { int e; return (int)rasp_sys0(RASP_SYS_getpid, &e); }
 RASP_INLINE int rasp_raw_getppid(void) { int e; return (int)rasp_sys0(RASP_SYS_getppid, &e); }
 RASP_INLINE int rasp_raw_csops(int pid, unsigned ops, void *buf, size_t sz, int *err) {
@@ -121,6 +125,7 @@ enum {
     RASP_MISC_DEVELOPER, RASP_MISC_SYSTEM_DEVELOPER, RASP_MISC_DBUS_AUTH, RASP_MISC_DBUS_REJECTED,
     RASP_MISC_PRIVATE, RASP_MISC_FOUNDATION, RASP_MISC_UIKITCORE, RASP_MISC_LIBOBJC, RASP_MISC_FORK,
     RASP_MISC_PTRACE, RASP_MISC_LIBDYLD_SHORT, RASP_MISC_DYLD, RASP_MISC_PREFS_DIR, RASP_MISC_VAR_JB,
+    RASP_MISC_USERSPACE_REBOOT_SYSCTL,
 };
 
 // Case-insensitive substring search.

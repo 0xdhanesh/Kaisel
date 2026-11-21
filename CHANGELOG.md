@@ -5,6 +5,27 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-11-21
+
+First jailbroken-device results: Dopamine + RootHide on iPhone9,3, iOS 15.8.2.
+
+### Added
+- `JailbreakEvidence`: one rule for "conclusive" evidence, shared by JB Check, the full kit and the server.
+- `dyldModified` (110): dyld `__text` compared with `/usr/lib/dyld` on disk, and dyld's load path checked.
+- `userspaceReboot` (111): `kern.userspacereboottime` indicator (Dopamine restarts userspace).
+- `previouslyJailbroken` (908): Keychain memory of an earlier conclusive result.
+- Reference server: per-key jailbreak history and `device.jailbreakEvidence`.
+- `IntegrityReport.jailbreakEvidence` and a "Jailbreak" row in Kaisel Integrity Check.
+- Lab scenarios `dopamine_roothide` and `dopamine_roothide_hidden`, with the first recorded run.
+
+### Changed
+- The device verdict is `compromised` whenever conclusive jailbreak evidence exists in any domain
+  (a RootHide-injected device showed "Elevated 56" before).
+- `syscallStubAltered` follows a same-image branch before firing, records the entry bytes, and uses confidence 60.
+
+### Known gap
+- With the app in RootHide's Blacklist, 1.2 reported a clean device. See docs/LIMITATIONS.md.
+
 ## [1.2.0] - 2026-11-21
 
 ### Added
@@ -30,5 +51,6 @@ and the project uses [Semantic Versioning](https://semver.org/).
 ### Added
 - First version: C core with raw-syscall checks and the Swift scoring layer.
 
-[Unreleased]: https://github.com/0xdhanesh/Kaisel/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/0xdhanesh/Kaisel/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/0xdhanesh/Kaisel/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/0xdhanesh/Kaisel/releases/tag/v1.2.0

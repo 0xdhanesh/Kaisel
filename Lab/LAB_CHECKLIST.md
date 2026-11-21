@@ -3,8 +3,9 @@
 Run only on test devices you own or are authorised to test. The goal is to
 measure, on real jailbroken and instrumented devices, which signals fire, and
 to catch false positives on stock devices. Nothing in this kit has yet been
-validated on a jailbroken device. Until this checklist is completed, treat the
-expectations in `expected.json` as hypotheses.
+validated on many jailbroken devices yet: the first record is
+[Dopamine + RootHide on iOS 15.8.2](results/2026-11-21_iphone9-3_ios15.8.2_dopamine-roothide.md).
+Until this checklist is completed, treat the expectations in `expected.json` as hypotheses.
 
 ## Devices to cover
 
@@ -29,7 +30,18 @@ expectations in `expected.json` as hypotheses.
    attaching Frida, and after enabling or disabling the hiding tweak.
 
 Scenario keys: `stock`, `xcode_debugger`, `dopamine`, `dopamine_hidden`,
+`dopamine_roothide`, `dopamine_roothide_hidden`,
 `palera1n_rootless`, `palera1n_rootful`, `trollstore`, `frida_server`, `frida_gadget`.
+
+## RootHide (Dopamine) scenarios
+
+1. **`dopamine_roothide`**: install both apps, make sure neither is in RootHide's **Blacklist**, run, export.
+2. **`dopamine_roothide_hidden`**: in the RootHide app, enable both Kaisel apps in **Blacklist**, force-quit
+   them, open again, run, export.
+3. Run the hidden case twice: once on a fresh install (no history), and once after an unhidden run
+   (tests `previouslyJailbroken` and the server history).
+4. Note whether `kern.userspacereboottime` fired (111) and whether `dyldModified` (110) fired.
+   If 110 fires on any **stock** device, report it immediately as a false positive.
 
 ## Check the results
 

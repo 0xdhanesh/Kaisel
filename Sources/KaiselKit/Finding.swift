@@ -44,6 +44,8 @@ public enum FindingCode: UInt16, Codable, CaseIterable, Sendable {
     case rootlessJailbreakRoot      = 105
     case libcSyscallMismatch        = 108
     case canaryFailed               = 109
+    case dyldModified               = 110
+    case userspaceReboot            = 111
     case sandboxWrite               = 120
     case sandboxFork                = 121
     case sandboxRead                = 122
@@ -87,6 +89,7 @@ public enum FindingCode: UInt16, Codable, CaseIterable, Sendable {
     case bundlePathUnexpected       = 904
     case jailbreakURLScheme         = 905
     case textHashMismatch           = 907
+    case previouslyJailbroken       = 908
     case checkSuppressed            = 1000
     case findingsOverflow           = 1001
     case simulator                  = 1002
@@ -111,6 +114,9 @@ public enum FindingCode: UInt16, Codable, CaseIterable, Sendable {
         case .rootVolumeWritable:         return .init(category: .filesystemIntegrity, weight: 0.90, hard: true,  title: "Root volume mounted read-write")
         case .rootlessJailbreakRoot:      return .init(category: .jailbreakArtefact, weight: 0.95, hard: true,  title: "Rootless jailbreak root (/var/jb) present")
         case .libcSyscallMismatch:        return .init(category: .tamper,            weight: 0.95, hard: true,  title: "libc and kernel disagree (hiding hook)")
+        case .dyldModified:               return .init(category: .tamper,            weight: 0.95, hard: true,  title: "dyld modified or replaced (jailbreak loader hook)")
+        case .userspaceReboot:            return .init(category: .jailbreakArtefact, weight: 0.40, hard: false, title: "Userspace reboot since kernel boot")
+        case .previouslyJailbroken:       return .init(category: .jailbreakArtefact, weight: 0.60, hard: false, title: "Jailbreak seen on this device before")
         case .canaryFailed:               return .init(category: .tamper,            weight: 0.80, hard: false, title: "Control probe failed")
         case .sandboxWrite:               return .init(category: .sandbox,           weight: 0.95, hard: true,  title: "Wrote outside the app container")
         case .sandboxFork:                return .init(category: .sandbox,           weight: 0.90, hard: true,  title: "fork() permitted")
@@ -166,7 +172,7 @@ public enum FindingCode: UInt16, Codable, CaseIterable, Sendable {
         case .jailbreakPathPresent, .jailbreakPathErrnoOracle, .symlinkedSystemDirectory, .rootVolumeNotSealed,
              .rootVolumeWritable, .rootlessJailbreakRoot, .libcSyscallMismatch, .sandboxWrite, .sandboxFork,
              .sandboxRead, .suspiciousEntitlement, .envJailbreak, .bundlePathUnexpected, .jailbreakURLScheme,
-             .simulator:
+             .simulator, .dyldModified, .userspaceReboot, .previouslyJailbroken:
             return .device
         case .canaryFailed, .suspiciousImage, .unexpectedImagePath, .imageListMismatch, .imageAddedAtRuntime,
              .interposeSection, .inlineHook, .symbolRebound, .breakpointInstruction, .objcSwizzled,

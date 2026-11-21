@@ -32,3 +32,35 @@ The point of this list is honesty. Every item below has been publicly demonstrat
 | **False positives** | Crash reporters (exception ports), MDM or enterprise re-signing (profile, team), SDKs that swizzle `UIApplication`, the app suspended in the background (`monitorIntervalStarved`). | Use `allowedExceptionPorts`, the distribution profiles, `weightOverrides` and `suppressedCodes`. |
 
 Prologue decoding is a heuristic. Apple can change the instruction sequences in system stubs between releases, so `syscallStubAltered` has a moderate weight. Validate it on every new major release.
+
+## Per-app hiding (RootHide Blacklist, Choicy, Shadow)
+
+**Tested:** on Dopamine + RootHide (iPhone9,3, iOS 15.8.2), adding the app to RootHide's Blacklist made
+both apps report a clean device with zero signals (see the [lab record](../Lab/results/2026-11-21_iphone9-3_ios15.8.2_dopamine-roothide.md)).
+This is expected for a well-designed hider, and no in-app check can promise to beat it.
+
+Why it works: the hidden app gets **nothing injected** (no hooks to detect), the jailbreak root lives at a
+**random path** the sandbox cannot list or guess, there is **no `/var/jb`**, and the package managers'
+URL schemes are filtered by the system service that answers `canOpenURL`. The app runs in a near-stock
+process on a jailbroken kernel.
+
+What can still be observed from inside a hidden app, and how good each is:
+
+| Residual | Kaisel check | Reliability |
+|---|---|---|
+| dyld patched or loaded from a non-system path (jailbreaks that hook dyld for every process) | `dyldModified` (110), compares in-memory `__text` with `/usr/lib/dyld` | Conclusive when it fires. Whether RootHide's Dopamine patches dyld for blacklisted apps is **unverified**; the lab re-run will tell. |
+| Userspace reboot after the exploit | `userspaceReboot` (111), `kern.userspacereboottime` | Indicator only. Stock iOS can also restart userspace; the sysctl may be unreadable on some versions. Unverified. |
+| The device was seen jailbroken earlier | `previouslyJailbroken` (908), Keychain marker | Indicator. Only works if the app ran unhidden at least once; a user can delete it. |
+| Same hardware key seen jailbroken before | Reference server per-key history | Strong for the "run once, then hide" pattern; resets on erase or if the key is lost. |
+| Kernel patches, trust-cache changes, PPL/KTRR bypass state | none | **Not observable** from the app sandbox. |
+| Random jailbreak root (`.jbroot-<random>`) | none | **Not guessable**; directory listing is denied by the sandbox. |
+| Timing differences (syscall latency, path lookup) | none | Rejected: too noisy across devices and iOS versions to use without many false positives. |
+| Processes, mach services, launchd jobs | none | Not visible: process listing and arbitrary `mach-lookup` are denied to apps. |
+
+**Practical guidance:** treat "not jailbroken" as *no evidence*, not as *proof of a stock device*. For
+high-value flows, combine the client report with server-side state:
+- **App Attest** proves the genuine app on real hardware (not a stock OS).
+- **DeviceCheck two bits** let your server mark a device as "seen jailbroken" in a way that survives
+  reinstall and app hiding; set it the first time any of your apps reports conclusive evidence.
+- **Per-key history** in the reference server does the same per Secure Enclave or App Attest key.
+- Behavioural fraud signals on the backend.

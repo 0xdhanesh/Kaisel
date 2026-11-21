@@ -10,6 +10,8 @@ struct ContentView: View {
                 if let r = model.report {
                     Section("Device") {
                         verdictRow("Device integrity", r.device)
+                        infoRow("Jailbreak", r.jailbreakEvidence.isEmpty
+                                ? "not detected" : "jailbroken (\(r.jailbreakEvidence.count) conclusive)")
                         verdictRow("This app's runtime", r.runtime)
                         if let a = r.app { verdictRow("App build", a) }
                         else { infoRow("App build", "not enforced (informational)") }

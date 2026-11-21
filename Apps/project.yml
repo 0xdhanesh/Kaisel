@@ -18,7 +18,7 @@ options:
 settings:
   base:
     KAISEL_BUNDLE_PREFIX: com.dhanesh.kaisel
-    MARKETING_VERSION: "1.2.0"
+    MARKETING_VERSION: "1.3.0"
     CURRENT_PROJECT_VERSION: "1"
     SWIFT_VERSION: "5.9"
     TARGETED_DEVICE_FAMILY: "1,2"

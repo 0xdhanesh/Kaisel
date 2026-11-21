@@ -4,7 +4,6 @@
   <img src="Branding/KaiselIntegrityCheck-1024.png" width="120" alt="Kaisel Integrity Check icon">
 </p>
 
-
 <h1 align="center">Kaisel</h1>
 
 <p align="center">
@@ -79,7 +78,7 @@ A free Apple ID signs apps for **7 days**; reinstall to renew. See [free account
 
 ```swift
 // Package.swift
-.package(url: "https://github.com/0xdhanesh/Kaisel.git", from: "1.2.0")
+.package(url: "https://github.com/0xdhanesh/Kaisel.git", from: "1.3.0")
 .product(name: "KaiselKit", package: "Kaisel")
 ```
 
@@ -118,6 +117,7 @@ Full guide: [Integration](docs/INTEGRATION.md).
 Any check running on a device the attacker controls can be bypassed. Kaisel makes bypassing expensive, noisy and detectable, and gives your server verifiable evidence. It is not proof.
 
 - Kernel-level hiding defeats filesystem checks; the in-process signals still apply.
+- **Per-app hiding defeats most in-app checks.** With the app in RootHide's Blacklist (Dopamine, iOS 15.8.2) version 1.2 reported a clean device. Version 1.3 adds checks that may survive hiding plus server-side memory; see [Limitations](docs/LIMITATIONS.md#per-app-hiding-roothide-blacklist-choicy-shadow).
 - Apple has no "this device is not jailbroken" attestation. App Attest proves a genuine app on a real device, not a stock OS.
 - Detections against current jailbreaks are validated only as far as [docs/LAB.md](docs/LAB.md) records. Please contribute lab results.
 
