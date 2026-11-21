@@ -170,6 +170,20 @@ class PolicyTests(unittest.TestCase):
         self.assertTrue(reasons)
         self.assertEqual(pol.decide(a, "missing", p)[0], "deny")
 
+    def test_stock_ios27_dyld_layout_mismatch_is_not_a_jailbreak(self):
+        # Regression: 1.3.0 reported "Jailbroken" on a stock iPhone18,1 / iOS 27.2.1.
+        p = pol.Policy(expected_distribution=None, require_app_attest=False)
+        a = pol.assess([{"code": 110, "confidence": 95,
+                         "detail": "dyld __text differs from disk: 162671 words, first at +0x0"}], p)
+        self.assertEqual(a["device"]["jailbreakEvidence"], [])
+        self.assertNotIn(a["device"]["verdict"], ("high", "compromised"))
+
+    def test_history_from_demoted_evidence_is_ignored(self):
+        self.assertFalse(pol.history_valid("2026-11-21T16:50:00Z"))
+        self.assertFalse(pol.history_valid({"firstSeen": "x", "evidence": [{"code": 110, "detail": "dyld"}]}))
+        self.assertTrue(pol.history_valid({"firstSeen": "x", "evidence": [
+            {"code": 200, "detail": ".jbroot-0/usr/lib/roothideinit.dylib"}]}))
+
     def test_missing_app_attest_denied_when_required(self):
         p = pol.Policy(expected_distribution=None, require_app_attest=True)
         self.assertEqual(pol.decide(pol.assess([], p), "missing", p)[0], "deny")

@@ -11,7 +11,7 @@ import CIntegrityCore
 /// let sealed = try await kit.seal(report, serverNonce: nonce)   // send to backend
 /// ```
 public final class IntegrityKit: @unchecked Sendable {
-    public static let sdkVersion = "1.3.0"
+    public static let sdkVersion = "1.3.1"
 
     public let configuration: IntegrityConfiguration
     public var scorer = RiskScorer()

@@ -42,6 +42,11 @@ one of the two per-device bits (`update_two_bits`) when conclusive evidence arri
 Apple per device and per developer team, survive app deletion and hiding, and are reset only when you
 reset them. Query them (`query_two_bits`) on every sensitive request.
 
+Entries are written only from conclusive evidence, and entries whose evidence is no longer conclusive
+under the current rule are ignored (this discards entries created by the 1.3.0 dyld false positive).
+To wipe the history, start the server with `--clear-history`. There is deliberately no HTTP endpoint for
+this, because a client must not be able to erase its own record.
+
 ## Server-side verification
 
 1. Issue a single-use nonce with a short TTL, bound to the session.

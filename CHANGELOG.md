@@ -5,13 +5,26 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-11-21
+
+### Fixed
+- **False "Jailbroken" on a stock iPhone18,1 / iOS 27.2.1.** The 1.3.0 dyld check compared the dyld running
+  from the shared cache (iOS 16+) with `/usr/lib/dyld` and found 162,671 differing words. The check now skips
+  in-cache dyld, ignores large layout differences, and `dyldModified` is an indicator, not conclusive.
+- Keychain jailbreak markers and server history entries created by that false positive are discarded.
+- Keychain markers are written only for conclusive evidence with confidence 90 or more.
+
+### Added
+- `JailbreakHistory.reset()` and a **Reset jailbreak history** button in both apps; `--clear-history` for the server.
+- Stock iOS 27 regression tests (Swift and server).
+
 ## [1.3.0] - 2026-11-21
 
 First jailbroken-device results: Dopamine + RootHide on iPhone9,3, iOS 15.8.2.
 
 ### Added
 - `JailbreakEvidence`: one rule for "conclusive" evidence, shared by JB Check, the full kit and the server.
-- `dyldModified` (110): dyld `__text` compared with `/usr/lib/dyld` on disk, and dyld's load path checked.
+- `dyldModified` (110): dyld `__text` compared with `/usr/lib/dyld` on disk, and dyld's load path checked (made an indicator in 1.3.1).
 - `userspaceReboot` (111): `kern.userspacereboottime` indicator (Dopamine restarts userspace).
 - `previouslyJailbroken` (908): Keychain memory of an earlier conclusive result.
 - Reference server: per-key jailbreak history and `device.jailbreakEvidence`.
@@ -51,6 +64,7 @@ First jailbroken-device results: Dopamine + RootHide on iPhone9,3, iOS 15.8.2.
 ### Added
 - First version: C core with raw-syscall checks and the Swift scoring layer.
 
-[Unreleased]: https://github.com/0xdhanesh/Kaisel/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/0xdhanesh/Kaisel/compare/v1.3.1...HEAD
+[1.3.1]: https://github.com/0xdhanesh/Kaisel/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/0xdhanesh/Kaisel/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/0xdhanesh/Kaisel/releases/tag/v1.2.0

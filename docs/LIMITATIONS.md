@@ -48,9 +48,9 @@ What can still be observed from inside a hidden app, and how good each is:
 
 | Residual | Kaisel check | Reliability |
 |---|---|---|
-| dyld patched or loaded from a non-system path (jailbreaks that hook dyld for every process) | `dyldModified` (110), compares in-memory `__text` with `/usr/lib/dyld` | Conclusive when it fires. Whether RootHide's Dopamine patches dyld for blacklisted apps is **unverified**; the lab re-run will tell. |
+| dyld patched or loaded from a non-system path (jailbreaks that hook dyld for every process) | `dyldModified` (110), compares in-memory `__text` with `/usr/lib/dyld` | Indicator only. Meaningful only where dyld runs from the file (iOS 15); skipped when dyld runs from the shared cache (iOS 16+). 1.3.0 wrongly treated it as conclusive and flagged a stock iOS 27 phone. Unverified on RootHide. |
 | Userspace reboot after the exploit | `userspaceReboot` (111), `kern.userspacereboottime` | Indicator only. Stock iOS can also restart userspace; the sysctl may be unreadable on some versions. Unverified. |
-| The device was seen jailbroken earlier | `previouslyJailbroken` (908), Keychain marker | Indicator. Only works if the app ran unhidden at least once; a user can delete it. |
+| The device was seen jailbroken earlier | `previouslyJailbroken` (908), Keychain marker | Indicator. Only works if the app ran unhidden at least once; a user can delete it. Markers whose evidence is no longer conclusive (such as 1.3.0's dyld false positive) are deleted on read. |
 | Same hardware key seen jailbroken before | Reference server per-key history | Strong for the "run once, then hide" pattern; resets on erase or if the key is lost. |
 | Kernel patches, trust-cache changes, PPL/KTRR bypass state | none | **Not observable** from the app sandbox. |
 | Random jailbreak root (`.jbroot-<random>`) | none | **Not guessable**; directory listing is denied by the sandbox. |

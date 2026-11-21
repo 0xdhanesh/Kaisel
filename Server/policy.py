@@ -27,7 +27,7 @@ APP_INFORMATIONAL_BY_DIST = {
 CONCLUSIVE_NAMES = {
     "jailbreakPathPresent", "rootlessJailbreakRoot", "symlinkedSystemDirectory", "rootVolumeWritable",
     "sandboxWrite", "sandboxFork", "libcSyscallMismatch", "imageListMismatch", "envJailbreak",
-    "suspiciousEntitlement", "bundlePathUnexpected", "dyldModified",
+    "suspiciousEntitlement", "bundlePathUnexpected",
 }
 CONCLUSIVE = {c for c, m in CODES.items() if m["name"] in CONCLUSIVE_NAMES}
 INJECTOR_CODES = {c for c, m in CODES.items() if m["name"] in ("suspiciousImage", "imageAddedAtRuntime")}
@@ -123,6 +123,15 @@ def assess(signals: list[dict], policy: Policy) -> dict:
     if policy.expected_distribution is None:
         out["app"]["verdict"] = "not_enforced"
     return out
+
+
+def history_valid(entry) -> bool:
+    """A history entry counts only if its recorded evidence is still conclusive
+    under the current rule. Entries from 1.3.0 (plain strings, possibly from the
+    dyld false positive on stock iOS 27) are ignored and overwritten."""
+    if not isinstance(entry, dict):
+        return False
+    return any(is_conclusive(str(e.get("code")), 100, e.get("detail", "")) for e in entry.get("evidence", []))
 
 
 def apply_history(assessment: dict, first_seen: str | None) -> list[str]:

@@ -45,6 +45,13 @@ struct ContentView: View {
                     if let s = model.sealedSummary { Text(s).font(.caption.monospaced()) }
                     Button("Copy result JSON (lab log)") { model.copyReportJSON() }
                         .disabled(model.report == nil)
+                    if JailbreakHistory.firstSighting != nil {
+                        Button("Reset jailbreak history") {
+                            JailbreakHistory.reset()
+                            Task { await model.run() }
+                        }
+                        .foregroundColor(.red)
+                    }
                 }
                 Section("Reference server") {
                     TextField("http://<mac-ip>:8080", text: $model.serverURL)

@@ -128,11 +128,14 @@ def verify_sealed(sealed: dict, challenge: bytes, store: Store, cfg) -> dict:
     if hist_key:
         with store.lock:
             history = store.devices.setdefault("_history", {})
-            if assessment["device"]["jailbreakEvidence"]:
-                history.setdefault(hist_key, time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()))
+            evidence = assessment["device"]["jailbreakEvidence"]
+            if evidence and not pol.history_valid(history.get(hist_key)):
+                history[hist_key] = {"firstSeen": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                                     "evidence": [{"code": e["code"], "detail": e["detail"]} for e in evidence]}
                 store.save()
-            else:
-                extra_reasons = pol.apply_history(assessment, history.get(hist_key))
+            elif not evidence:
+                entry = history.get(hist_key)
+                extra_reasons = pol.apply_history(assessment, entry["firstSeen"] if pol.history_valid(entry) else None)
     decision, reasons = pol.decide(assessment, result["appAttest"], policy)
     reasons += extra_reasons
     return {"decision": decision, "reasons": reasons, **result,
@@ -207,6 +210,8 @@ def main(argv=None):
     ap.add_argument("--db", default="devices.json")
     ap.add_argument("--host", default="0.0.0.0")
     ap.add_argument("--port", type=int, default=8080)
+    ap.add_argument("--clear-history", action="store_true",
+                    help="forget all 'seen jailbroken' device keys (e.g. after a false positive), then serve")
     a = ap.parse_args(argv)
 
     class Cfg:
@@ -218,7 +223,12 @@ def main(argv=None):
         debugger_expected = a.debugger_expected
         rules_dir = a.rules_dir
 
-    srv = ThreadingHTTPServer((a.host, a.port), make_handler(Store(a.db), Cfg))
+    store = Store(a.db)
+    if a.clear_history:
+        n = len(store.devices.pop("_history", {}) or {})
+        store.save()
+        print(f"cleared jailbreak history for {n} device key(s)")
+    srv = ThreadingHTTPServer((a.host, a.port), make_handler(store, Cfg))
     print(f"listening on http://{a.host}:{a.port}  app-id={a.app_id}")
     srv.serve_forever()
 

@@ -64,25 +64,6 @@ This writes `dist/<Scheme>-<version>-unsigned.ipa` and `dist/SHA256SUMS.txt`. No
 is needed to build. Install with Impactor or Sideloadly, which sign the app with your Apple ID:
 see [Sideloading](SIDELOADING.md). Tagged releases on GitHub publish the same files.
 
-## Publishing GitHub Releases
-
-The [Release workflow](../.github/workflows/release.yml) builds both apps and attaches these
-files to the GitHub Release:
-
-- `KaiselJBCheck-<version>-unsigned.ipa`
-- `KaiselIntegrityCheck-<version>-unsigned.ipa`
-- `SHA256SUMS.txt`
-
-Set `MARKETING_VERSION` in `Apps/project.yml` before committing the release, then push a
-matching version tag (for example, `v1.3.0`). The workflow creates the release and uploads
-the assets automatically. Publishing a release for a `v*` tag through GitHub's UI also
-runs the build and attaches both IPAs.
-
-To add or rebuild assets for an existing tag, open **Actions → Release → Run workflow**
-on the default branch and enter that tag in the **tag** input. The workflow builds the
-tagged source and uploads the assets to its release, replacing assets with the same names.
-Wait for the workflow to finish before downloading from the release's **Assets** section.
-
 ## Common build errors
 
 | Error | Fix |

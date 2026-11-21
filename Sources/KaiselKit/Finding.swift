@@ -114,7 +114,7 @@ public enum FindingCode: UInt16, Codable, CaseIterable, Sendable {
         case .rootVolumeWritable:         return .init(category: .filesystemIntegrity, weight: 0.90, hard: true,  title: "Root volume mounted read-write")
         case .rootlessJailbreakRoot:      return .init(category: .jailbreakArtefact, weight: 0.95, hard: true,  title: "Rootless jailbreak root (/var/jb) present")
         case .libcSyscallMismatch:        return .init(category: .tamper,            weight: 0.95, hard: true,  title: "libc and kernel disagree (hiding hook)")
-        case .dyldModified:               return .init(category: .tamper,            weight: 0.95, hard: true,  title: "dyld modified or replaced (jailbreak loader hook)")
+        case .dyldModified:               return .init(category: .tamper,            weight: 0.50, hard: false, title: "dyld code differs from disk (possible loader hook)")
         case .userspaceReboot:            return .init(category: .jailbreakArtefact, weight: 0.40, hard: false, title: "Userspace reboot since kernel boot")
         case .previouslyJailbroken:       return .init(category: .jailbreakArtefact, weight: 0.60, hard: false, title: "Jailbreak seen on this device before")
         case .canaryFailed:               return .init(category: .tamper,            weight: 0.80, hard: false, title: "Control probe failed")

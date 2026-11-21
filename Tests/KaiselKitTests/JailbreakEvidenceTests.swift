@@ -14,7 +14,8 @@ final class JailbreakEvidenceTests: XCTestCase {
         XCTAssertFalse(JailbreakEvidence.isConclusive(sig(.suspiciousImage, 95, "/private/var/x/FridaGadget.dylib")))
         XCTAssertFalse(JailbreakEvidence.isConclusive(sig(.syscallStubAltered, 60, "csops")))
         XCTAssertFalse(JailbreakEvidence.isConclusive(sig(.jailbreakURLScheme, 80, "sileo://")))
-        XCTAssertTrue(JailbreakEvidence.isConclusive(sig(.dyldModified, 95, "dyld __text differs")))
+        // Demoted in 1.3.1 after a stock iOS 27 false positive.
+        XCTAssertFalse(JailbreakEvidence.isConclusive(sig(.dyldModified, 95, "dyld __text differs")))
     }
 
     func testInformationalNeverConclusive() {
@@ -31,6 +32,17 @@ final class JailbreakEvidenceTests: XCTestCase {
         let device = RiskScorer().assess(.device, signals)
         XCTAssertLessThan(device.verdict, .compromised)
         XCTAssertTrue(signals.contains(where: JailbreakEvidence.isConclusive))
+    }
+
+    /// Regression fixture: stock iPhone18,1, iOS 27.2.1, Kaisel 1.3.0 said "Jailbroken"
+    /// because dyld runs from the shared cache and differed from /usr/lib/dyld.
+    func testStockIOS27DyldMismatchIsNotAJailbreak() {
+        let signals = [sig(.dyldModified, 95, "dyld __text differs from disk: 162671 words, first at +0x0")]
+        XCTAssertFalse(signals.contains(where: JailbreakEvidence.isConclusive))
+        XCTAssertFalse(FindingCode.dyldModified.metadata.hard)
+        XCTAssertLessThan(RiskScorer().assess(.device, signals).verdict, .high)
+        XCTAssertFalse(JailbreakMemory.isStillConclusive(.dyldModified, detail: "dyld"))
+        XCTAssertTrue(JailbreakMemory.isStillConclusive(.suspiciousImage, detail: ".jbroot-0/usr/lib/roothideinit.dylib"))
     }
 
     func testNewCodesMapToDevice() {

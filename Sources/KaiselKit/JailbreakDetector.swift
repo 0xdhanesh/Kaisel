@@ -41,14 +41,14 @@ public enum JailbreakEvidence {
     public static let conclusiveCodes: Set<FindingCode> = [
         .jailbreakPathPresent, .rootlessJailbreakRoot, .symlinkedSystemDirectory, .rootVolumeWritable,
         .sandboxWrite, .sandboxFork, .libcSyscallMismatch, .imageListMismatch, .envJailbreak,
-        .suspiciousEntitlement, .bundlePathUnexpected, .dyldModified,
+        .suspiciousEntitlement, .bundlePathUnexpected,
     ]
     /// Indirect evidence only.
     public static let indicatorCodes: Set<FindingCode> = [
         .jailbreakPathErrnoOracle, .rootVolumeNotSealed, .sandboxRead, .unexpectedImagePath,
         .interposeSection, .inlineHook, .symbolRebound, .objcSwizzled, .syscallStubAltered,
         .symbolForeignImage, .envInjection, .envGetenvMismatch, .jailbreakURLScheme, .canaryFailed,
-        .checkSuppressed, .userspaceReboot, .previouslyJailbroken,
+        .checkSuppressed, .userspaceReboot, .previouslyJailbroken, .dyldModified,
     ]
 
     /// Tweak-injection libraries (Substrate, ElleKit, TweakInject, systemhook,

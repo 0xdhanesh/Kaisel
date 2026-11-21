@@ -124,13 +124,22 @@ Developer Mode is reported in `posture` and as informational signals. It never a
 
 ### dyld integrity (`rasp_images.c`)
 
-dyld is not part of the shared cache and its `__TEXT` is never rebased, so its code in memory must match
-`/usr/lib/dyld` on disk. The check finds dyld through `dyld_all_image_infos`, confirms the file has the
-same `LC_UUID`, then compares `__TEXT,__text` byte for byte using raw `open`/`pread`. It also checks the
-path dyld was loaded from (`dyldPath`, Apple-signed cryptex and `/System` locations allowed). Differences
-that are only `brk` instructions (at most 8) are reported as a debugger breakpoint, because lldb sets
-breakpoints inside dyld. Any other difference is `dyldModified` (conclusive), because a jailbreak that hooks
-dyld affects every process, including ones hidden by a per-app hider.
+When dyld runs from `/usr/lib/dyld` itself, its code in memory should match the file. The check finds
+dyld through `dyld_all_image_infos`, confirms the file has the same `LC_UUID`, then compares
+`__TEXT,__text` using raw `open`/`pread`. It also checks the path dyld was loaded from (Apple-signed
+`/usr/lib`, `/System` and cryptex locations allowed).
+
+**Limits, learned the hard way.** On iOS 16 and later dyld normally re-executes from its copy inside the
+dyld shared cache. That copy has the same UUID but a different code layout, so comparing it with the file
+is meaningless: 1.3.0 did this and reported a stock iPhone18,1 on iOS 27.2.1 as **Jailbroken** (162,671
+differing words). Since 1.3.1:
+- dyld images flagged `MH_DYLIB_IN_CACHE` are skipped;
+- only a small difference (1 to 64 words) is reported; anything larger is treated as "not the same code";
+- differences that are only `brk` instructions (at most 8) are reported as a debugger breakpoint;
+- `dyldModified` is an **indicator** (weight 0.50), never conclusive and never a hard indicator.
+
+In practice the check only has a chance on iOS 15, where dyld runs from the file. It is unverified on a
+jailbroken device.
 
 ### Userspace reboot (`rasp_fs.c`)
 
@@ -143,6 +152,12 @@ restart userspace too.
 When conclusive evidence is seen, a Keychain item records the first sighting. A later clean run reports
 `previouslyJailbroken` as an indicator. Keychain items survive app deletion and per-app hiding, but not an
 erase. The server-side per-key history is the tamper-resistant version.
+
+The marker is written only for conclusive evidence with confidence 90 or more, never for an indicator.
+It is ignored and deleted if its recorded evidence is no longer conclusive under the current rule.
+Both apps show **Reset jailbreak history** while a marker exists, and host apps can call
+`JailbreakHistory.reset()`. The protected verdict (`kit.lastVerdict`) is held in memory with per-process
+keys and is never persisted, so it starts empty on every launch.
 
 ### One jailbreak rule for both apps
 

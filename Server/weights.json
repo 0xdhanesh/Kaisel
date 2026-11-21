@@ -98,10 +98,10 @@
  "110": {
   "category": "tamper",
   "domain": "device",
-  "hard": true,
+  "hard": false,
   "name": "dyldModified",
-  "title": "dyld modified or replaced (jailbreak loader hook)",
-  "weight": 0.95
+  "title": "dyld code differs from disk (possible loader hook)",
+  "weight": 0.5
  },
  "111": {
   "category": "jailbreakArtefact",

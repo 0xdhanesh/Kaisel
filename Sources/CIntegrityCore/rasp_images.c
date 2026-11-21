@@ -167,10 +167,15 @@ static void report_image(rasp_findings_t *out, const char *path, const char *bun
 // dyld integrity
 //
 // Per-app hiding (RootHide's Blacklist, Choicy, Shadow) keeps tweaks out of the
-// app, but a jailbreak that patches or replaces dyld to bypass library
-// validation affects every process it spawns, hidden or not. dyld is not in
-// the shared cache and its __TEXT is never rebased, so the bytes in memory
-// must equal /usr/lib/dyld on disk when the build (LC_UUID) matches.
+// app, but a jailbreak that patches dyld affects every process it spawns.
+//
+// Only sound when dyld runs from /usr/lib/dyld itself. On iOS 16 and later
+// dyld usually re-executes from its copy inside the dyld shared cache
+// (MH_DYLIB_IN_CACHE): same LC_UUID, different code layout, so a byte compare
+// with the file is meaningless. That case is skipped (it caused a false
+// "Jailbroken" on a stock iPhone18,1 / iOS 27.2.1 in 1.3.0). A large diff is
+// also treated as a layout mismatch, not a hook. Indicator only, never
+// conclusive.
 // ---------------------------------------------------------------------------
 #if defined(__aarch64__)
 typedef struct { const struct section_64 *text; uint64_t text_vmaddr; const uint8_t *uuid; } dyld_layout_t;
@@ -231,10 +236,14 @@ static void check_dyld(rasp_findings_t *out, const struct dyld_all_image_infos *
     if (!rasp_obf_decode(RASP_MISC(RASP_MISC_DYLD), path, sizeof path)) return;
 
     // dyld_all_image_infos v15+ records the file dyld was loaded from.
+    // dyld running from the shared cache: nothing on disk to compare against.
+    if (mh->flags & 0x80000000u /* MH_DYLIB_IN_CACHE */) goto done;
+
     // Cryptex and /System copies are Apple-signed locations, not evidence.
-    if (all->version >= 15 && all->dyldPath && strcmp(all->dyldPath, path) != 0 &&
-        !has_prefix_obf(all->dyldPath, RASP_MISC_CRYPTEXES) && !has_prefix_obf(all->dyldPath, RASP_MISC_SYSTEM))
-        rasp_add(out, RASP_F_DYLD_MODIFIED, 90, "dyld loaded from %.160s", all->dyldPath);
+    if (all->version >= 15 && all->dyldPath && all->dyldPath[0] == '/' && strcmp(all->dyldPath, path) != 0 &&
+        !has_prefix_obf(all->dyldPath, RASP_MISC_CRYPTEXES) && !has_prefix_obf(all->dyldPath, RASP_MISC_SYSTEM) &&
+        !has_prefix_obf(all->dyldPath, RASP_MISC_USR_LIB))
+        rasp_add(out, RASP_F_DYLD_MODIFIED, 60, "dyld loaded from %.160s", all->dyldPath);
 
     dyld_layout_t L = { NULL, 0, NULL };
     rasp_for_each_load_command(mh, dyld_lc_visit, &L);
@@ -268,8 +277,10 @@ static void check_dyld(rasp_findings_t *out, const struct dyld_all_image_infos *
             // A debugger (lldb sets breakpoints inside dyld for image events).
             rasp_add(out, RASP_F_BREAKPOINT_INSN, 80, "dyld: %u software breakpoint(s), first at +0x%llx",
                      brk, (unsigned long long)first);
-        else if (diff)
-            rasp_add(out, RASP_F_DYLD_MODIFIED, 95, "dyld __text differs from disk: %u words, first at +0x%llx",
+        else if (diff && diff <= 64)
+            // A handful of rewritten instructions looks like hooks. Hundreds or
+            // thousands means we are not comparing the same code: no evidence.
+            rasp_add(out, RASP_F_DYLD_MODIFIED, 70, "dyld __text differs from disk: %u words, first at +0x%llx",
                      diff, (unsigned long long)first);
     }
     rasp_raw_close(fd);
