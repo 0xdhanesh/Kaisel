@@ -22,7 +22,7 @@ jobs:
       matrix:
         scheme: [KaiselJBCheck, KaiselIntegrityCheck, KaiselIntegrityCheckAttest]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Install XcodeGen
         run: brew install xcodegen
       - name: Generate Xcode project
@@ -40,7 +40,7 @@ jobs:
     name: KaiselKit unit tests
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Pick an iPhone simulator
         id: sim
         run: |
@@ -60,7 +60,7 @@ jobs:
     name: Reference server tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -79,7 +79,7 @@ jobs:
     name: C image classifier (host build, shared fixtures)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Build and run against Tests/Fixtures and Server/classification.py
         run: python3 Tests/CClassifier/run_tests.py
 
@@ -87,7 +87,7 @@ jobs:
     name: Shell scripts and string generator
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: ShellCheck
         run: shellcheck Scripts/*.sh
       - name: Committed string table matches the source lists

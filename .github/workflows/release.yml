@@ -32,7 +32,7 @@ jobs:
             v*) git check-ref-format "refs/tags/$RELEASE_TAG" ;;
             *) echo "error: releases require an existing v* tag" >&2; exit 1 ;;
           esac
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: refs/tags/${{ env.RELEASE_TAG }}
       - name: Install XcodeGen
