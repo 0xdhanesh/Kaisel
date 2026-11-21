@@ -1,0 +1,126 @@
+{
+ "_comment": "Single source of truth for evidence classification (Kaisel 1.4.0). Read by Scripts/gen_strings.py (C core lists), Server/policy.py (server scoring and history) and the parity tests, which also check the Swift sets in JailbreakDetector.swift and IntegrityKit.swift against this file. Edit here, then run: python3 Scripts/gen_strings.py && python3 Server/tools/export_weights.py",
+ "schemaVersion": 1,
+ "conclusiveCodes": [
+  "jailbreakPathPresent",
+  "rootlessJailbreakRoot",
+  "symlinkedSystemDirectory",
+  "rootVolumeWritable",
+  "sandboxWrite",
+  "sandboxFork",
+  "libcSyscallMismatch",
+  "imageListMismatch",
+  "envJailbreak",
+  "suspiciousEntitlement",
+  "bundlePathUnexpected",
+  "suspiciousImage"
+ ],
+ "conclusiveRequiresImageRevalidation": ["suspiciousImage"],
+ "indicatorCodes": [
+  "jailbreakPathErrnoOracle",
+  "rootVolumeNotSealed",
+  "sandboxRead",
+  "unexpectedImagePath",
+  "imageMarkerMatch",
+  "instrumentationImage",
+  "imageAddedAtRuntime",
+  "interposeSection",
+  "inlineHook",
+  "symbolRebound",
+  "objcSwizzled",
+  "syscallStubAltered",
+  "symbolForeignImage",
+  "envInjection",
+  "envGetenvMismatch",
+  "jailbreakURLScheme",
+  "canaryFailed",
+  "checkSuppressed",
+  "userspaceReboot",
+  "previouslyJailbroken",
+  "dyldModified"
+ ],
+ "corroboratingCodes": [
+  "fridaThread",
+  "fridaDBus",
+  "fridaMemoryMarker",
+  "fridaPortOpen",
+  "inlineHook",
+  "symbolRebound",
+  "suspiciousImage",
+  "instrumentationImage",
+  "imageListMismatch"
+ ],
+ "images": {
+  "_comment": "Basenames are compared case-insensitively and exactly. Prefixes are compared after /private/var -> /var and /private/preboot -> /preboot normalisation, on a directory boundary.",
+  "jailbreakInjectorBasenames": [
+   "mobilesubstrate.dylib",
+   "libsubstrate.dylib",
+   "cydiasubstrate",
+   "substrateloader.dylib",
+   "substrateinserter.dylib",
+   "substratebootstrap.dylib",
+   "libsubstitute.dylib",
+   "libsubstitute.0.dylib",
+   "substitute-inserter.dylib",
+   "substitute-loader.dylib",
+   "libhooker.dylib",
+   "tweakinject.dylib",
+   "tweakloader.dylib",
+   "libellekit.dylib",
+   "systemhook.dylib",
+   "roothideinit.dylib",
+   "rootlesshooks.dylib",
+   "libsandy.dylib"
+  ],
+  "jailbreakRootPrefixes": [
+   "/var/jb/",
+   "/Library/MobileSubstrate/DynamicLibraries/",
+   "/usr/lib/TweakInject/"
+  ],
+  "jailbreakRootComponentPrefixes": [
+   ".jbroot-"
+  ],
+  "instrumentationBasenames": [
+   "fridagadget.dylib",
+   "frida-gadget.dylib",
+   "frida-agent.dylib",
+   "libfrida-gadget.dylib",
+   "libcycript.dylib"
+  ],
+  "instrumentationBasenamePrefixes": [
+   "frida-agent-",
+   "frida-gadget-",
+   "fridagadget"
+  ],
+  "broadMarkers": [
+   "frida",
+   "gum-js",
+   "cynject",
+   "cycript",
+   "substrate",
+   "substitute",
+   "libhooker",
+   "tweakinject",
+   "ellekit",
+   "systemhook",
+   "rootlesshooks",
+   "libsandy",
+   "shadow",
+   "abypass",
+   "flyjb",
+   "liberty",
+   "sslkillswitch",
+   "choicy",
+   "crane",
+   "roothide",
+   "jbroot"
+  ],
+  "trustedPrefixes": [
+   "/System/",
+   "/usr/lib/",
+   "/preboot/Cryptexes/",
+   "/Developer/",
+   "/System/Developer/"
+  ]
+ }
+}

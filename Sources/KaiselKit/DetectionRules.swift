@@ -32,6 +32,11 @@ public struct DetectionRules: Codable, Sendable, Equatable {
     public var expiresAt: Date
     public var minSdkVersion: String?
     public var extraJailbreakPaths: [String]
+    /// Substrings matched against the *names* of images outside the system and
+    /// the app bundle. Since 1.4.0 a match is `imageMarkerMatch` (206), an
+    /// indicator: signed rules can never create a conclusive jailbreak verdict.
+    /// Promoting an identity to conclusive needs a reviewed change to
+    /// Server/classification.json and a new SDK release.
     public var extraImageMarkers: [String]
     /// Must also be listed under LSApplicationQueriesSchemes, or canOpenURL
     /// always returns false. Pre-declare a reserve list in Info.plist.

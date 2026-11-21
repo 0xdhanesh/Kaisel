@@ -70,8 +70,18 @@ class FakeAppleCA:
         return cbor2.dumps({"signature": sig, "authenticatorData": auth})
 
 
-def report(signals):
-    return json.dumps({"verdict": "trusted", "signals": signals, "build": {"textSHA256": "ab"}, "rulesVersion": 1}).encode()
+def report_dict(signals, **over):
+    """A well-formed 1.4.0 report with every expected check complete."""
+    d = {"verdict": "trusted", "sdkVersion": "1.4.0", "reportSchemaVersion": 2,
+         "signals": [dict({"detail": ""}, **x) for x in signals],
+         "checksCompleted": pol.ALL_CHECKS, "checksExpected": pol.ALL_CHECKS,
+         "build": {"textSHA256": "ab"}, "rulesVersion": 1}
+    d.update(over)
+    return d
+
+
+def report(signals, **over):
+    return json.dumps(report_dict(signals, **over)).encode()
 
 
 STOCK_IOS27 = [  # iPhone18,1 iOS 27.2.1 Xcode install: all build/posture noise
@@ -187,7 +197,10 @@ class PolicyTests(unittest.TestCase):
     def test_missing_app_attest_denied_when_required(self):
         p = pol.Policy(expected_distribution=None, require_app_attest=True)
         self.assertEqual(pol.decide(pol.assess([], p), "missing", p)[0], "deny")
-        p2 = pol.Policy(expected_distribution=None, require_app_attest=False)
+        # 1.4.0: strict mode requires App Attest even if require_app_attest is False.
+        p_strict = pol.Policy(expected_distribution=None, require_app_attest=False)
+        self.assertEqual(pol.decide(pol.assess([], p_strict), "missing", p_strict)[0], "deny")
+        p2 = pol.Policy(expected_distribution=None, mode="lab", require_app_attest=False)
         self.assertEqual(pol.decide(pol.assess([], p2), "missing", p2)[0], "step_up")
 
 
@@ -244,12 +257,13 @@ class EndToEndTests(unittest.TestCase):
             # challenge is single use
             with self.assertRaises(ValueError):
                 store.take_challenge(cid)
-            # payload swapped after sealing -> rejected
+            # payload swapped after sealing -> structured deny (1.4.0; raised ValueError before)
             cid, ch = store.new_challenge()
             s = sealed(DOPAMINE, 3, ch)
             s["payload"] = base64.b64encode(report(STOCK_IOS27)).decode()
-            with self.assertRaises(ValueError):
-                server.verify_sealed(s, store.take_challenge(cid), store, Cfg)
+            r = server.verify_sealed(s, store.take_challenge(cid), store, Cfg)
+            self.assertEqual(r["decision"], "deny")
+            self.assertIn("tampered", r["reasons"][0])
 
 
 if __name__ == "__main__":

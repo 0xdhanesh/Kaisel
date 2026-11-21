@@ -1,212 +1,431 @@
 {
-  "stock": {
-    "description": "Stock, non-jailbroken device. Xcode, ad hoc or App Store install.",
-    "jbcheck": {
-      "status": [
-        "notJailbroken"
-      ]
+    "_comment": "Expected outcomes per scenario and app. These are TARGETS and hypotheses, not measurements: measured results live in Lab/results/ and Lab/COVERAGE.md. compare_results.py prints PASS, PARTIAL, FAIL or NOT TESTED against them. 'knownGap' marks a target the current release is known to miss.",
+    "stock": {
+        "description": "Stock, non-jailbroken device. Xcode, ad hoc or App Store install.",
+        "jbcheck": {
+            "status": [
+                "notJailbroken"
+            ]
+        },
+        "integritycheck": {
+            "device": [
+                "trusted"
+            ],
+            "runtime": [
+                "trusted",
+                "low"
+            ]
+        },
+        "regression": "1.3.0 reported jailbroken on iPhone18,1 / iOS 27.2.1 via dyldModified (fixed in 1.3.1). Any conclusive signal here is a release blocker.",
+        "recorded": "2026-11-21, iPhone18,1, iOS 27.2.1. 1.3.0 false positive (dyldModified), fixed in 1.3.1. 1.3.x screenshots: JB Check Not jailbroken, Integrity Check Trusted 0. PASS."
     },
-    "integritycheck": {
-      "device": [
-        "trusted"
-      ],
-      "runtime": [
-        "trusted",
-        "low"
-      ]
+    "xcode_debugger": {
+        "description": "Stock device, app launched from Xcode with the debugger attached (Debug build).",
+        "jbcheck": {
+            "status": [
+                "notJailbroken"
+            ]
+        },
+        "integritycheck": {
+            "device": [
+                "trusted"
+            ],
+            "any_codes": [
+                400,
+                401
+            ]
+        }
     },
-    "regression": "1.3.0 reported jailbroken on iPhone18,1 / iOS 27.2.1 via dyldModified (fixed in 1.3.1). Any conclusive signal here is a release blocker."
-  },
-  "xcode_debugger": {
-    "description": "Stock device, app launched from Xcode with the debugger attached (Debug build).",
-    "jbcheck": {
-      "status": [
-        "notJailbroken"
-      ]
+    "dopamine": {
+        "description": "Dopamine rootless jailbreak, no hiding tweak, app not excluded from injection.",
+        "jbcheck": {
+            "status": [
+                "jailbroken"
+            ],
+            "any_codes": [
+                105,
+                100,
+                200,
+                701
+            ]
+        },
+        "integritycheck": {
+            "device": [
+                "high",
+                "compromised"
+            ]
+        },
+        "phase": "P2"
     },
-    "integritycheck": {
-      "device": [
-        "trusted"
-      ],
-      "any_codes": [
-        400,
-        401
-      ]
+    "dopamine_hidden": {
+        "description": "Dopamine plus a hiding tweak (e.g. roothide/Choicy/Shadow-style) enabled for the app.",
+        "jbcheck": {
+            "status": [
+                "jailbroken",
+                "suspicious"
+            ],
+            "any_codes": [
+                108,
+                202,
+                105,
+                101,
+                300,
+                301,
+                304,
+                305
+            ]
+        },
+        "integritycheck": {
+            "device": [
+                "elevated",
+                "high",
+                "compromised"
+            ]
+        },
+        "phase": "P2"
+    },
+    "palera1n_rootless": {
+        "description": "palera1n rootless (checkm8 device).",
+        "jbcheck": {
+            "status": [
+                "jailbroken"
+            ],
+            "any_codes": [
+                105,
+                100
+            ]
+        },
+        "integritycheck": {
+            "device": [
+                "high",
+                "compromised"
+            ]
+        },
+        "phase": "P2"
+    },
+    "palera1n_rootful": {
+        "description": "palera1n rootful / fakefs (checkm8 device).",
+        "jbcheck": {
+            "status": [
+                "jailbroken"
+            ],
+            "any_codes": [
+                104,
+                103,
+                100,
+                102
+            ]
+        },
+        "integritycheck": {
+            "device": [
+                "high",
+                "compromised"
+            ]
+        },
+        "phase": "P2"
+    },
+    "trollstore": {
+        "description": "KaiselJBCheck installed via TrollStore (stock kernel, CoreTrust bypass).",
+        "jbcheck": {
+            "status": [
+                "jailbroken"
+            ],
+            "any_codes": [
+                602
+            ]
+        },
+        "integritycheck": {
+            "device": [
+                "high",
+                "compromised"
+            ]
+        },
+        "phase": "P2",
+        "recorded": "2026-11-21, model and iOS not recorded, Kaisel 1.3.1: detected by both apps (reported by the owner; no JSON or screenshot in the repo)."
+    },
+    "frida_server": {
+        "description": "Jailbroken device, frida-server running, Frida attached to the running app with a hook script (authorised lab device).",
+        "integritycheck": {
+            "runtime": [
+                "high",
+                "compromised"
+            ],
+            "any_codes": [
+                500,
+                502,
+                306,
+                300
+            ]
+        },
+        "phase": "P2",
+        "measure": [
+            500,
+            501,
+            502,
+            503,
+            504,
+            205,
+            300,
+            301,
+            306,
+            610,
+            1000
+        ]
+    },
+    "frida_gadget": {
+        "description": "Stock device, KaiselIntegrityCheck repackaged with FridaGadget and re-signed.",
+        "jbcheck": {
+            "status": [
+                "notJailbroken",
+                "suspicious"
+            ]
+        },
+        "integritycheck": {
+            "runtime": [
+                "high",
+                "compromised"
+            ],
+            "any_codes": [
+                205,
+                500,
+                504
+            ]
+        },
+        "note": "1.4.0: FridaGadget is instrumentationImage (205), runtime risk, never conclusive jailbreak evidence. Before 1.4.0 it was reported as 200.",
+        "phase": "P2",
+        "measure": [
+            205,
+            500,
+            503,
+            504,
+            603,
+            900,
+            901,
+            601,
+            1000
+        ]
+    },
+    "dopamine_roothide": {
+        "description": "Dopamine rootless with RootHide (randomised .jbroot-*), Sileo/Zebra installed, app NOT in RootHide's Blacklist.",
+        "jbcheck": {
+            "status": [
+                "jailbroken"
+            ],
+            "any_codes": [
+                200
+            ]
+        },
+        "integritycheck": {
+            "device": [
+                "compromised"
+            ]
+        },
+        "recorded": "2026-11-21, iPhone9,3, iOS 15.8.2. v1.2: JB Check PASS (roothideinit.dylib); full app device verdict elevated 56, fixed in 1.3. 1.3.x (screenshots, no JSON): JB Check Jailbroken (roothideinit.dylib from .jbroot-*, sileo://), Integrity Check device Compromised 85, runtime Compromised 97. PASS."
+    },
+    "dopamine_roothide_hidden": {
+        "description": "Same device with the app enabled in RootHide's Blacklist (per-app hiding). Nothing is injected into the app.",
+        "jbcheck": {
+            "status": [
+                "suspicious",
+                "jailbroken"
+            ],
+            "any_codes": [
+                110,
+                111,
+                908
+            ]
+        },
+        "integritycheck": {
+            "device": [
+                "elevated",
+                "high",
+                "compromised"
+            ]
+        },
+        "recorded": "2026-11-21, iPhone9,3, iOS 15.8.2. v1.2 FAIL (clean). One 1.3.1 run read Suspicious (not exported, not reproduced). 1.3.x screenshots: JB Check Not jailbroken, no indicators; Integrity Check Trusted 0. FAIL.",
+        "knownGap": "Missed in every recorded run: v1.2 and 1.3.x both apps clean (Not jailbroken, Trusted 0). The 1.3 residual signals (110, 111, 908) did not fire. Target kept so the miss stays visible."
+    },
+    "dopamine_roothide_hidden_fresh": {
+        "description": "RootHide Blacklist on a fresh install that has never run unhidden: no Keychain marker and no server history. Measures what survives hiding with no memory.",
+        "jbcheck": {
+            "status": [
+                "suspicious",
+                "jailbroken"
+            ],
+            "any_codes": [
+                110,
+                111
+            ]
+        },
+        "integritycheck": {
+            "device": [
+                "elevated",
+                "high",
+                "compromised"
+            ]
+        },
+        "knownGap": "Expected to be missed today: per-app hiding leaves no in-process evidence (see docs/LIMITATIONS.md)."
+    },
+    "dopamine_roothide_hidden_seen": {
+        "description": "RootHide Blacklist after a verified unhidden run of the same install (Keychain marker present, server history written for the App Attest key).",
+        "jbcheck": {
+            "status": [
+                "suspicious",
+                "jailbroken"
+            ],
+            "any_codes": [
+                908
+            ]
+        },
+        "integritycheck": {
+            "device": [
+                "elevated",
+                "high",
+                "compromised"
+            ],
+            "any_codes": [
+                908
+            ]
+        },
+        "server": "Reference server in strict mode should answer deny with 'jailbreak previously seen for this device key'.",
+        "note": "The 1.3.x hidden screenshots showed no Reset jailbreak history button, so the marker was not seen there; re-test with exported JSON."
+    },
+    "frida_spawn": {
+        "phase": "P2",
+        "description": "Jailbroken device, the app spawned under Frida (authorised lab device).",
+        "integritycheck": {
+            "runtime": [
+                "high",
+                "compromised"
+            ],
+            "any_codes": [
+                500,
+                502,
+                504,
+                300,
+                306
+            ]
+        },
+        "measure": [
+            500,
+            501,
+            502,
+            503,
+            504,
+            205,
+            300,
+            301,
+            306,
+            610,
+            1000
+        ]
+    },
+    "frida_renamed": {
+        "phase": "P2",
+        "description": "Authorised test build in which instrumentation file names and thread names differ from Frida's defaults. Measures which detectors do not depend on names.",
+        "integritycheck": {
+            "runtime": [
+                "elevated",
+                "high",
+                "compromised"
+            ]
+        },
+        "measure": [
+            201,
+            206,
+            503,
+            504,
+            300,
+            301,
+            306,
+            610,
+            901,
+            1000
+        ],
+        "note": "Name-based detectors (205, 500) are expected to miss; record which behaviour-based ones respond."
+    },
+    "frida_late_attach": {
+        "phase": "P2",
+        "description": "Instrumentation attached after the first assessment; run 'Evaluate now' again and keep IntegrityMonitor running.",
+        "integritycheck": {
+            "runtime": [
+                "high",
+                "compromised"
+            ],
+            "any_codes": [
+                203,
+                205,
+                306,
+                610,
+                500
+            ]
+        },
+        "measure": [
+            203,
+            205,
+            206,
+            500,
+            504,
+            306,
+            610,
+            1003
+        ]
+    },
+    "shadow_class_hiding": {
+        "phase": "P2",
+        "description": "Jailbroken device with a Shadow-class hiding tweak enabled for the app (hooks file and dyld APIs inside the process).",
+        "jbcheck": {
+            "status": [
+                "suspicious",
+                "jailbroken"
+            ],
+            "any_codes": [
+                108,
+                202,
+                300,
+                301,
+                304,
+                305
+            ]
+        },
+        "integritycheck": {
+            "device": [
+                "elevated",
+                "high",
+                "compromised"
+            ]
+        },
+        "measure": [
+            108,
+            202,
+            300,
+            301,
+            303,
+            304,
+            305,
+            201,
+            206,
+            111,
+            110,
+            908
+        ]
+    },
+    "stock_ios26": {
+        "description": "Stock device on iOS 26 (false-positive baseline). Same expectation as 'stock'.",
+        "jbcheck": {
+            "status": [
+                "notJailbroken"
+            ]
+        },
+        "integritycheck": {
+            "device": [
+                "trusted"
+            ],
+            "runtime": [
+                "trusted",
+                "low"
+            ]
+        },
+        "recorded": "2026-11-21, model not recorded, Kaisel 1.3.1: clean (reported by the owner; no JSON or screenshot in the repo)."
     }
-  },
-  "dopamine": {
-    "description": "Dopamine rootless jailbreak, no hiding tweak, app not excluded from injection.",
-    "jbcheck": {
-      "status": [
-        "jailbroken"
-      ],
-      "any_codes": [
-        105,
-        100,
-        200,
-        701
-      ]
-    },
-    "integritycheck": {
-      "device": [
-        "high",
-        "compromised"
-      ]
-    }
-  },
-  "dopamine_hidden": {
-    "description": "Dopamine plus a hiding tweak (e.g. roothide/Choicy/Shadow-style) enabled for the app.",
-    "jbcheck": {
-      "status": [
-        "jailbroken",
-        "suspicious"
-      ],
-      "any_codes": [
-        108,
-        202,
-        105,
-        101,
-        300,
-        301,
-        304,
-        305
-      ]
-    },
-    "integritycheck": {
-      "device": [
-        "elevated",
-        "high",
-        "compromised"
-      ]
-    }
-  },
-  "palera1n_rootless": {
-    "description": "palera1n rootless (checkm8 device).",
-    "jbcheck": {
-      "status": [
-        "jailbroken"
-      ],
-      "any_codes": [
-        105,
-        100
-      ]
-    },
-    "integritycheck": {
-      "device": [
-        "high",
-        "compromised"
-      ]
-    }
-  },
-  "palera1n_rootful": {
-    "description": "palera1n rootful / fakefs (checkm8 device).",
-    "jbcheck": {
-      "status": [
-        "jailbroken"
-      ],
-      "any_codes": [
-        104,
-        103,
-        100,
-        102
-      ]
-    },
-    "integritycheck": {
-      "device": [
-        "high",
-        "compromised"
-      ]
-    }
-  },
-  "trollstore": {
-    "description": "KaiselJBCheck installed via TrollStore (stock kernel, CoreTrust bypass).",
-    "jbcheck": {
-      "status": [
-        "jailbroken"
-      ],
-      "any_codes": [
-        602
-      ]
-    },
-    "integritycheck": {
-      "device": [
-        "high",
-        "compromised"
-      ]
-    }
-  },
-  "frida_server": {
-    "description": "Jailbroken device, frida-server running, `frida -U -n KaiselIntegrityCheck` attached with a hook script.",
-    "integritycheck": {
-      "runtime": [
-        "high",
-        "compromised"
-      ],
-      "any_codes": [
-        500,
-        502,
-        306,
-        300
-      ]
-    }
-  },
-  "frida_gadget": {
-    "description": "Stock device, KaiselIntegrityCheck repackaged with FridaGadget and re-signed.",
-    "jbcheck": {
-      "status": [
-        "notJailbroken",
-        "suspicious"
-      ]
-    },
-    "integritycheck": {
-      "runtime": [
-        "high",
-        "compromised"
-      ],
-      "any_codes": [
-        200,
-        500
-      ]
-    }
-  },
-  "dopamine_roothide": {
-    "description": "Dopamine rootless with RootHide (randomised .jbroot-*), Sileo/Zebra installed, app NOT in RootHide's Blacklist.",
-    "jbcheck": {
-      "status": [
-        "jailbroken"
-      ],
-      "any_codes": [
-        200,
-        110
-      ]
-    },
-    "integritycheck": {
-      "device": [
-        "compromised"
-      ]
-    },
-    "recorded": "2026-11-21, iPhone9,3, iOS 15.8.2, v1.2: JB Check PASS (roothideinit.dylib); full app device verdict was elevated 56, fixed in v1.3 by the shared jailbreak rule."
-  },
-  "dopamine_roothide_hidden": {
-    "description": "Same device with the app enabled in RootHide's Blacklist (per-app hiding). Nothing is injected into the app.",
-    "jbcheck": {
-      "status": [
-        "suspicious",
-        "jailbroken"
-      ],
-      "any_codes": [
-        110,
-        111,
-        908
-      ]
-    },
-    "integritycheck": {
-      "device": [
-        "elevated",
-        "high",
-        "compromised"
-      ]
-    },
-    "recorded": "2026-11-21, iPhone9,3, iOS 15.8.2, v1.2: FAIL. Both apps reported clean (no signals). v1.3 adds dyld integrity (110), userspace reboot (111) and jailbreak memory (908); expectations are hypotheses until re-run."
-  }
 }

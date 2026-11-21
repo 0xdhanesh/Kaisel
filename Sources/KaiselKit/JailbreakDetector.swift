@@ -6,7 +6,7 @@ import CIntegrityCore
 /// debugger or Frida is attached to it.
 ///
 /// Decision rule:
-/// - `jailbroken`: at least one **conclusive** finding, meaning evidence that a
+/// - `jailbroken`: at least one **conclusive** finding (`JailbreakEvidence`), meaning evidence that a
 ///   stock, sealed iOS cannot produce: the rootless jailbreak root `/var/jb`,
 ///   jailbreak files visible to the kernel, a writable or re-mounted root
 ///   volume, a broken app sandbox (write outside the container or fork()),
@@ -17,7 +17,9 @@ import CIntegrityCore
 /// - `suspicious`: only indirect evidence (package-manager URL schemes,
 ///   errno-inferred paths, unexpected image locations, hooks on file APIs,
 ///   a check that did not complete).
-/// - `notJailbroken`: none of the above.
+/// - `notJailbroken`: none of the above. This means no conclusive or indirect
+///   evidence was observed by this process. It is not proof of a stock device:
+///   per-app hiding (for example RootHide's Blacklist) is a known miss.
 public struct JailbreakResult: Codable, Hashable, Sendable {
     public enum Status: String, Codable, Sendable { case jailbroken, suspicious, notJailbroken }
     public let status: Status
@@ -31,46 +33,110 @@ public struct JailbreakResult: Codable, Hashable, Sendable {
     public let durationMs: Double
     /// Checks that ran (filesystem, sandbox, images, hooks, environment, code signing, canary).
     public let checksRun: [String]
+    /// Checks that were started but did not complete (1.4.0). Empty on a normal run.
+    public let checksIncomplete: [String]
+    /// SDK version that produced the result (1.4.0), for lab records.
+    public let sdkVersion: String
+}
+
+/// Explicit loaded-image evidence classes (1.4.0). A thin wrapper over the C
+/// classifier (`rasp_image_class`), so the image scan, the runtime monitor and
+/// re-validation of stored evidence use one implementation. The lists come
+/// from `Server/classification.json`, shared with the reference server.
+public enum ImageEvidenceClass: String, Codable, Sendable {
+    /// No usable path.
+    case unknown
+    /// System location, or inside the app bundle without a known identity.
+    case trusted
+    /// Exact jailbreak-injector identity outside the bundle, or a jailbreak-root path. Conclusive.
+    case jailbreakInjector
+    /// Frida/Cycript, or an injector inside the bundle (re-signed app). Runtime risk only.
+    case instrumentation
+    /// Broad marker (built-in or signed remote rules) in an external image name. Indicator.
+    case marker
+    /// Any other image outside the system and the bundle. Indicator.
+    case unknownExternal
+}
+
+public enum ImageEvidence {
+    /// Classifies an image path. `bundlePath` nil means "unknown bundle": an
+    /// image is then treated as in-bundle when a directory component ends in ".app".
+    public static func classify(_ path: String, bundlePath: String? = nil) -> ImageEvidenceClass {
+        let c: rasp_image_class_t
+        if let b = bundlePath { c = rasp_image_class(path, b) } else { c = rasp_image_class(path, nil) }
+        switch c {
+        case RASP_IMG_TRUSTED: return .trusted
+        case RASP_IMG_JAILBREAK_INJECTOR: return .jailbreakInjector
+        case RASP_IMG_INSTRUMENTATION: return .instrumentation
+        case RASP_IMG_MARKER: return .marker
+        case RASP_IMG_UNKNOWN_EXTERNAL: return .unknownExternal
+        default: return .unknown
+        }
+    }
+
+    /// Same as `classify`, with the simulator behaviour explicit. Used by the
+    /// regression tests so results do not depend on where the tests run.
+    static func classify(_ path: String, bundlePath: String?, simulator: Bool) -> ImageEvidenceClass {
+        let c: rasp_image_class_t
+        if let b = bundlePath { c = rasp_image_class_ex(path, b, simulator) } else { c = rasp_image_class_ex(path, nil, simulator) }
+        switch c {
+        case RASP_IMG_TRUSTED: return .trusted
+        case RASP_IMG_JAILBREAK_INJECTOR: return .jailbreakInjector
+        case RASP_IMG_INSTRUMENTATION: return .instrumentation
+        case RASP_IMG_MARKER: return .marker
+        case RASP_IMG_UNKNOWN_EXTERNAL: return .unknownExternal
+        default: return .unknown
+        }
+    }
 }
 
 /// The single rule that decides whether evidence proves a jailbreak. Used by
-/// `JailbreakDetector` (Kaisel JB Check) and by `IntegrityKit` for the device
-/// verdict, so both apps always agree.
+/// `JailbreakDetector` (Kaisel JB Check), by `IntegrityKit` for the device
+/// verdict and by `JailbreakMemory` for stored history, so all agree. The
+/// reference server applies the same rule (`Server/policy.py`), and a parity
+/// test checks both sets against `Server/classification.json`.
+///
+/// 1.4.0: conclusive evidence is an explicit allow-list of finding codes. An
+/// image is conclusive only as `suspiciousImage` (200) whose path still
+/// classifies as a known jailbreak injector. Before 1.4.0 any image finding
+/// that did not mention Frida was treated as an injector, so a framework named
+/// like a broad marker (for example "CraneBank") could produce "Jailbroken".
 public enum JailbreakEvidence {
     /// Codes that a stock, sealed iOS cannot produce.
     public static let conclusiveCodes: Set<FindingCode> = [
         .jailbreakPathPresent, .rootlessJailbreakRoot, .symlinkedSystemDirectory, .rootVolumeWritable,
         .sandboxWrite, .sandboxFork, .libcSyscallMismatch, .imageListMismatch, .envJailbreak,
-        .suspiciousEntitlement, .bundlePathUnexpected,
+        .suspiciousEntitlement, .bundlePathUnexpected, .suspiciousImage,
     ]
     /// Indirect evidence only.
     public static let indicatorCodes: Set<FindingCode> = [
         .jailbreakPathErrnoOracle, .rootVolumeNotSealed, .sandboxRead, .unexpectedImagePath,
+        .imageMarkerMatch, .instrumentationImage, .imageAddedAtRuntime,
         .interposeSection, .inlineHook, .symbolRebound, .objcSwizzled, .syscallStubAltered,
         .symbolForeignImage, .envInjection, .envGetenvMismatch, .jailbreakURLScheme, .canaryFailed,
         .checkSuppressed, .userspaceReboot, .previouslyJailbroken, .dyldModified,
     ]
 
-    /// Tweak-injection libraries (Substrate, ElleKit, TweakInject, systemhook,
-    /// RootHide's roothideinit) prove a jailbreak; Frida/FridaGadget does not,
-    /// because it can be embedded in a re-signed app on a stock phone.
+    /// True when the image named in `detail` is a known jailbreak injector
+    /// (RootHide's roothideinit, Substrate, ElleKit, TweakInject, systemhook, or
+    /// anything under a jailbreak root). Frida/FridaGadget and injectors inside
+    /// the app bundle are not: they run in re-signed apps on stock phones.
+    /// Before 1.4.0 this returned true for any detail without "frida"/"gadget".
     public static func isTweakInjector(_ detail: String) -> Bool {
-        let d = detail.lowercased()
-        return !(d.contains("frida") || d.contains("gadget") || d.contains("gum-js"))
+        ImageEvidence.classify(detail) == .jailbreakInjector
+    }
+
+    /// Code-and-detail form, for raw findings and stored history.
+    public static func isConclusive(code: FindingCode, detail: String) -> Bool {
+        guard conclusiveCodes.contains(code) else { return false }
+        if code == .suspiciousImage { return isTweakInjector(detail) }
+        return true
     }
 
     /// True when this one signal proves the device is jailbroken.
     public static func isConclusive(_ s: Signal) -> Bool {
         if s.informational { return false }
-        switch s.code {
-        case .suspiciousImage:
-            return isTweakInjector(s.detail)
-        case .imageAddedAtRuntime:
-            // 95 = classified as a known injection library (see IntegrityKit.newlyLoadedImages()).
-            return s.confidence >= 95 && isTweakInjector(s.detail)
-        default:
-            return conclusiveCodes.contains(s.code)
-        }
+        return isConclusive(code: s.code, detail: s.detail)
     }
 }
 
@@ -111,11 +177,12 @@ public final class JailbreakDetector: @unchecked Sendable {
         var conclusive: [RawSignal] = []
         var indicators: [RawSignal] = []
         for r in raw {
-            if r.code == .suspiciousImage {
-                if JailbreakEvidence.isTweakInjector(r.detail) { conclusive.append(r) } else { indicators.append(r) }
-            } else if Self.conclusiveCodes.contains(r.code) {
+            if JailbreakEvidence.isConclusive(code: r.code, detail: r.detail) {
                 conclusive.append(r)
-            } else if Self.indicatorCodes.contains(r.code) {
+            } else if Self.indicatorCodes.contains(r.code) || Self.conclusiveCodes.contains(r.code) {
+                // A conclusive-code finding that fails re-validation (for
+                // example an image path that no longer classifies as an
+                // injector) is kept as an indicator, never dropped silently.
                 indicators.append(r)
             }
         }
@@ -140,6 +207,7 @@ public final class JailbreakDetector: @unchecked Sendable {
         let elapsedMs: Double = Date().timeIntervalSince(started) * 1000.0
         var checksRun: [String] = checks.map { $0.name }
         if probeURLSchemes { checksRun.append("urlSchemes") }
+        let incomplete: [String] = checks.filter { core.completed & $0.bit == 0 }.map { $0.name }
         return JailbreakResult(
             status: status,
             conclusive: c,
@@ -148,6 +216,8 @@ public final class JailbreakDetector: @unchecked Sendable {
             osVersion: sys.osVersion,
             checkedAt: started,
             durationMs: elapsedMs,
-            checksRun: checksRun)
+            checksRun: checksRun,
+            checksIncomplete: incomplete,
+            sdkVersion: IntegrityKit.sdkVersion)
     }
 }

@@ -1,0 +1,281 @@
+{
+ "_comment": "Shared regression fixtures for loaded-image classification. Run by Tests/CClassifier/run_tests.py (C core), Server/tests/test_classification.py (server) and Tests/KaiselKitTests/ImageClassificationTests.swift (SDK). Paths are synthetic; no client data.",
+ "cases": [
+  {
+   "name": "CraneBank main executable in its bundle",
+   "path": "/var/containers/Bundle/Application/1A2B3C4D-0000-4000-8000-000000000001/CraneBank.app/CraneBank",
+   "bundle": "/var/containers/Bundle/Application/1A2B3C4D-0000-4000-8000-000000000001/CraneBank.app",
+   "expected": "trusted",
+   "simulator": false,
+   "remoteMarkers": []
+  },
+  {
+   "name": "Legitimate CraneBank.framework in the bundle (broad marker 'crane')",
+   "path": "/var/containers/Bundle/Application/1A2B3C4D-0000-4000-8000-000000000001/CraneBank.app/Frameworks/CraneBank.framework/CraneBank",
+   "bundle": "/var/containers/Bundle/Application/1A2B3C4D-0000-4000-8000-000000000001/CraneBank.app",
+   "expected": "trusted",
+   "simulator": false,
+   "remoteMarkers": []
+  },
+  {
+   "name": "Legitimate LibertyFinance.framework (broad marker 'liberty')",
+   "path": "/var/containers/Bundle/Application/1A2B3C4D-0000-4000-8000-000000000002/App.app/Frameworks/LibertyFinance.framework/LibertyFinance",
+   "bundle": "/var/containers/Bundle/Application/1A2B3C4D-0000-4000-8000-000000000002/App.app",
+   "expected": "trusted",
+   "simulator": false,
+   "remoteMarkers": []
+  },
+  {
+   "name": "Legitimate ChoicyAnalytics.framework (broad marker 'choicy')",
+   "path": "/var/containers/Bundle/Application/1A2B3C4D-0000-4000-8000-000000000002/App.app/Frameworks/ChoicyAnalytics.framework/ChoicyAnalytics",
+   "bundle": "/var/containers/Bundle/Application/1A2B3C4D-0000-4000-8000-000000000002/App.app",
+   "expected": "trusted",
+   "simulator": false,
+   "remoteMarkers": []
+  },
+  {
+   "name": "Bundle reported with /private prefix, image without",
+   "path": "/var/containers/Bundle/Application/1A2B3C4D-0000-4000-8000-000000000002/App.app/Frameworks/Foo.framework/Foo",
+   "bundle": "/private/var/containers/Bundle/Application/1A2B3C4D-0000-4000-8000-000000000002/App.app",
+   "expected": "trusted",
+   "simulator": false,
+   "remoteMarkers": []
+  },
+  {
+   "name": "Image reported with /private prefix, bundle without",
+   "path": "/private/var/containers/Bundle/Application/1A2B3C4D-0000-4000-8000-000000000002/App.app/App",
+   "bundle": "/var/containers/Bundle/Application/1A2B3C4D-0000-4000-8000-000000000002/App.app",
+   "expected": "trusted",
+   "simulator": false,
+   "remoteMarkers": []
+  },
+  {
+   "name": "Observed RootHide injector (lab: iPhone9,3, iOS 15.8.2)",
+   "path": "/private/var/containers/Bundle/Application/.jbroot-7351422000C774F3/usr/lib/roothideinit.dylib",
+   "bundle": "/var/containers/Bundle/Application/1A2B3C4D-0000-4000-8000-000000000002/App.app",
+   "expected": "jailbreakInjector",
+   "simulator": false,
+   "remoteMarkers": []
+  },
+  {
+   "name": "RootHide .jbroot path, unlisted tweak name",
+   "path": "/var/containers/Bundle/Application/.jbroot-7351422000C774F3/Library/MobileSubstrate/DynamicLibraries/SomeTweak.dylib",
+   "bundle": "/var/containers/Bundle/Application/1A2B3C4D-0000-4000-8000-000000000002/App.app",
+   "expected": "jailbreakInjector",
+   "simulator": false,
+   "remoteMarkers": []
+  },
+  {
+   "name": "ElleKit in the rootless jailbreak root",
+   "path": "/var/jb/usr/lib/libellekit.dylib",
+   "bundle": "/var/containers/Bundle/Application/1A2B3C4D-0000-4000-8000-000000000002/App.app",
+   "expected": "jailbreakInjector",
+   "simulator": false,
+   "remoteMarkers": []
+  },
+  {
+   "name": "Dopamine TweakLoader",
+   "path": "/var/jb/usr/lib/TweakLoader.dylib",
+   "bundle": "/var/containers/Bundle/Application/1A2B3C4D-0000-4000-8000-000000000002/App.app",
+   "expected": "jailbreakInjector",
+   "simulator": false,
+   "remoteMarkers": []
+  },
+  {
+   "name": "Rootful Substrate",
+   "path": "/Library/MobileSubstrate/MobileSubstrate.dylib",
+   "bundle": "/var/containers/Bundle/Application/1A2B3C4D-0000-4000-8000-000000000002/App.app",
+   "expected": "jailbreakInjector",
+   "simulator": false,
+   "remoteMarkers": []
+  },
+  {
+   "name": "Rootful libsubstrate under /usr/lib (identity wins over system prefix)",
+   "path": "/usr/lib/libsubstrate.dylib",
+   "bundle": "/var/containers/Bundle/Application/1A2B3C4D-0000-4000-8000-000000000002/App.app",
+   "expected": "jailbreakInjector",
+   "simulator": false,
+   "remoteMarkers": []
+  },
+  {
+   "name": "Rootful tweak directory",
+   "path": "/Library/MobileSubstrate/DynamicLibraries/AnyTweak.dylib",
+   "bundle": "/var/containers/Bundle/Application/1A2B3C4D-0000-4000-8000-000000000002/App.app",
+   "expected": "jailbreakInjector",
+   "simulator": false,
+   "remoteMarkers": []
+  },
+  {
+   "name": "FridaGadget in a repackaged app",
+   "path": "/var/containers/Bundle/Application/1A2B3C4D-0000-4000-8000-000000000002/App.app/Frameworks/FridaGadget.dylib",
+   "bundle": "/var/containers/Bundle/Application/1A2B3C4D-0000-4000-8000-000000000002/App.app",
+   "expected": "instrumentation",
+   "simulator": false,
+   "remoteMarkers": []
+  },
+  {
+   "name": "frida-agent outside the bundle",
+   "path": "/var/tmp/frida-agent-arm64.dylib",
+   "bundle": "/var/containers/Bundle/Application/1A2B3C4D-0000-4000-8000-000000000002/App.app",
+   "expected": "instrumentation",
+   "simulator": false,
+   "remoteMarkers": []
+  },
+  {
+   "name": "Substrate injected into a re-signed app (stock phone possible)",
+   "path": "/var/containers/Bundle/Application/1A2B3C4D-0000-4000-8000-000000000002/App.app/Frameworks/CydiaSubstrate.framework/CydiaSubstrate",
+   "bundle": "/var/containers/Bundle/Application/1A2B3C4D-0000-4000-8000-000000000002/App.app",
+   "expected": "instrumentation",
+   "simulator": false,
+   "remoteMarkers": []
+  },
+  {
+   "name": "Unknown non-system image",
+   "path": "/var/mobile/Library/Caches/libfoo.dylib",
+   "bundle": "/var/containers/Bundle/Application/1A2B3C4D-0000-4000-8000-000000000002/App.app",
+   "expected": "unknownExternal",
+   "simulator": false,
+   "remoteMarkers": []
+  },
+  {
+   "name": "Sibling directory is not the bundle (/var/App.app2 vs /var/App.app)",
+   "path": "/var/App.app2/Frameworks/X.framework/X",
+   "bundle": "/var/App.app",
+   "expected": "unknownExternal",
+   "simulator": false,
+   "remoteMarkers": []
+  },
+  {
+   "name": "Sibling directory with a marker name",
+   "path": "/var/App.app2/Frameworks/Crane.framework/Crane",
+   "bundle": "/var/App.app",
+   "expected": "marker",
+   "simulator": false,
+   "remoteMarkers": []
+  },
+  {
+   "name": "Broad marker in an external image name",
+   "path": "/var/mobile/Library/Liberty/liberty.dylib",
+   "bundle": "/var/containers/Bundle/Application/1A2B3C4D-0000-4000-8000-000000000002/App.app",
+   "expected": "marker",
+   "simulator": false,
+   "remoteMarkers": []
+  },
+  {
+   "name": "Directory named jb is not /var/jb",
+   "path": "/var/jbx/foo.dylib",
+   "bundle": "/var/containers/Bundle/Application/1A2B3C4D-0000-4000-8000-000000000002/App.app",
+   "expected": "unknownExternal",
+   "simulator": false,
+   "remoteMarkers": []
+  },
+  {
+   "name": "System library",
+   "path": "/usr/lib/libobjc.A.dylib",
+   "bundle": "/var/containers/Bundle/Application/1A2B3C4D-0000-4000-8000-000000000002/App.app",
+   "expected": "trusted",
+   "simulator": false,
+   "remoteMarkers": []
+  },
+  {
+   "name": "System framework",
+   "path": "/System/Library/Frameworks/UIKit.framework/UIKit",
+   "bundle": "/var/containers/Bundle/Application/1A2B3C4D-0000-4000-8000-000000000002/App.app",
+   "expected": "trusted",
+   "simulator": false,
+   "remoteMarkers": []
+  },
+  {
+   "name": "Cryptex",
+   "path": "/private/preboot/Cryptexes/OS/System/Library/Frameworks/Foo.framework/Foo",
+   "bundle": "/var/containers/Bundle/Application/1A2B3C4D-0000-4000-8000-000000000002/App.app",
+   "expected": "trusted",
+   "simulator": false,
+   "remoteMarkers": []
+  },
+  {
+   "name": "Legitimate Friday framework in bundle (broad marker 'frida')",
+   "path": "/var/containers/Bundle/Application/1A2B3C4D-0000-4000-8000-000000000002/App.app/Frameworks/FridaySchedule.framework/FridaySchedule",
+   "bundle": "/var/containers/Bundle/Application/1A2B3C4D-0000-4000-8000-000000000002/App.app",
+   "expected": "trusted",
+   "simulator": false,
+   "remoteMarkers": []
+  },
+  {
+   "name": "Re-validation without bundle: stored RootHide detail",
+   "path": ".jbroot-0/usr/lib/roothideinit.dylib",
+   "bundle": null,
+   "expected": "jailbreakInjector",
+   "simulator": false,
+   "remoteMarkers": []
+  },
+  {
+   "name": "Re-validation without bundle: prefixed detail",
+   "path": "exec mapping of /var/jb/usr/lib/systemhook.dylib",
+   "bundle": null,
+   "expected": "jailbreakInjector",
+   "simulator": false,
+   "remoteMarkers": []
+  },
+  {
+   "name": "Re-validation without bundle: in-app framework",
+   "path": "/var/containers/Bundle/Application/1A2B3C4D-0000-4000-8000-000000000002/App.app/Frameworks/CraneBank.framework/CraneBank",
+   "bundle": null,
+   "expected": "trusted",
+   "simulator": false,
+   "remoteMarkers": []
+  },
+  {
+   "name": "Re-validation without bundle: injector inside an app",
+   "path": "/var/containers/Bundle/Application/1A2B3C4D-0000-4000-8000-000000000002/App.app/Frameworks/libsubstrate.dylib",
+   "bundle": null,
+   "expected": "instrumentation",
+   "simulator": false,
+   "remoteMarkers": []
+  },
+  {
+   "name": "Empty path",
+   "path": "",
+   "bundle": "/var/containers/Bundle/Application/1A2B3C4D-0000-4000-8000-000000000002/App.app",
+   "expected": "unknown",
+   "simulator": false,
+   "remoteMarkers": []
+  },
+  {
+   "name": "Signed remote rules marker: external image",
+   "path": "/var/mobile/Library/evilhook.dylib",
+   "bundle": "/var/containers/Bundle/Application/1A2B3C4D-0000-4000-8000-000000000002/App.app",
+   "expected": "marker",
+   "simulator": false,
+   "remoteMarkers": [
+    "evilhook"
+   ]
+  },
+  {
+   "name": "Signed remote rules marker: in-bundle image is not matched",
+   "path": "/var/containers/Bundle/Application/1A2B3C4D-0000-4000-8000-000000000002/App.app/Frameworks/evilhook.dylib",
+   "bundle": "/var/containers/Bundle/Application/1A2B3C4D-0000-4000-8000-000000000002/App.app",
+   "expected": "trusted",
+   "simulator": false,
+   "remoteMarkers": [
+    "evilhook"
+   ]
+  },
+  {
+   "name": "Simulator: Xcode image outside the bundle",
+   "path": "/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/libfoo.dylib",
+   "bundle": "/var/containers/Bundle/Application/1A2B3C4D-0000-4000-8000-000000000002/App.app",
+   "expected": "trusted",
+   "simulator": true,
+   "remoteMarkers": []
+  },
+  {
+   "name": "Simulator: FridaGadget is still instrumentation",
+   "path": "/var/containers/Bundle/Application/1A2B3C4D-0000-4000-8000-000000000002/App.app/Frameworks/FridaGadget.dylib",
+   "bundle": "/var/containers/Bundle/Application/1A2B3C4D-0000-4000-8000-000000000002/App.app",
+   "expected": "instrumentation",
+   "simulator": true,
+   "remoteMarkers": []
+  }
+ ]
+}

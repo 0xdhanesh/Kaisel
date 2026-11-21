@@ -125,9 +125,16 @@ enum CoreBridge {
     }
 
     static func classifyImage(_ path: String) -> FindingCode? {
+        classifyImageEvidence(path)?.code
+    }
+
+    /// Finding code and confidence for an image path, nil when trusted or unknown.
+    static func classifyImageEvidence(_ path: String) -> (code: FindingCode, confidence: UInt8)? {
         let bundle = (Bundle.main.bundlePath as NSString).resolvingSymlinksInPath
-        let code = rasp_classify_image(path, bundle)
-        return code == 0 ? nil : FindingCode(rawValue: code)
+        let cls = rasp_image_class(path, bundle)
+        let raw = rasp_image_class_code(cls)
+        guard raw != 0, let code = FindingCode(rawValue: raw) else { return nil }
+        return (code, rasp_image_class_confidence(cls))
     }
 
     static func drainNewImages() -> [String] {

@@ -66,11 +66,13 @@ enum {
     RASP_F_SANDBOX_FORK           = 121,
     RASP_F_SANDBOX_READ           = 122,
     // Loaded images / injection
-    RASP_F_SUSPICIOUS_IMAGE       = 200,
+    RASP_F_SUSPICIOUS_IMAGE       = 200,   // 1.4.0: known jailbreak injector only (conclusive)
     RASP_F_UNEXPECTED_IMAGE_PATH  = 201,
     RASP_F_IMAGE_LIST_MISMATCH    = 202,
     RASP_F_IMAGE_ADDED_RUNTIME    = 203,
     RASP_F_INTERPOSE_SECTION      = 204,
+    RASP_F_INSTRUMENTATION_IMAGE  = 205,   // 1.4.0: Frida/Cycript, or injector inside the bundle
+    RASP_F_IMAGE_MARKER_MATCH     = 206,   // 1.4.0: broad marker in an external image name
     // Hooks
     RASP_F_INLINE_HOOK            = 300,
     RASP_F_SYMBOL_REBOUND         = 301,
@@ -140,6 +142,7 @@ void rasp_integrity_baseline(void);
 
 // ---- Remote rules (additive) -------------------------------------------------------
 // Adds jailbreak paths and image-name markers on top of the compiled-in lists.
+// Image markers only ever produce RASP_F_IMAGE_MARKER_MATCH (an indicator).
 // Strings are copied. Passing new lists replaces the previous *extra* lists;
 // the compiled-in lists can never be removed this way.
 void rasp_rules_set(const char *const *paths, uint32_t path_count,
@@ -165,7 +168,27 @@ void rasp_monitor_install(void);
 // NUL-terminated slots of RASP_DETAIL_LEN bytes each. Returns the number copied.
 // Classification is done by rasp_classify_image().
 uint32_t rasp_drain_new_images(char *buf, uint32_t max);
-// 0 = expected, RASP_F_SUSPICIOUS_IMAGE or RASP_F_UNEXPECTED_IMAGE_PATH otherwise.
+
+// ---- Loaded-image classification (rasp_classify.c) -------------------------------
+// Explicit evidence classes. Only RASP_IMG_JAILBREAK_INJECTOR is conclusive.
+typedef enum {
+    RASP_IMG_UNKNOWN = 0,            // no usable path: nothing can be said
+    RASP_IMG_TRUSTED,                // system location, or inside the app bundle (identity not matched)
+    RASP_IMG_JAILBREAK_INJECTOR,     // exact injector basename outside the bundle, or a jailbreak-root path
+    RASP_IMG_INSTRUMENTATION,        // Frida/Cycript, or an injector basename inside the bundle (re-signed app)
+    RASP_IMG_MARKER,                 // broad marker (built-in or remote rules) in an external image name
+    RASP_IMG_UNKNOWN_EXTERNAL,       // any other image outside the system and the bundle
+} rasp_image_class_t;
+// `bundle_path` may be NULL (re-validating stored evidence): an image is then
+// treated as in-bundle when a directory component ends in ".app".
+// `path` may carry a text prefix; classification starts at its first '/'.
+rasp_image_class_t rasp_image_class(const char *path, const char *bundle_path);
+// Same, with the simulator behaviour explicit (used by tests on any platform).
+rasp_image_class_t rasp_image_class_ex(const char *path, const char *bundle_path, bool simulator);
+// Finding code for a class: 200, 205, 206, 201, or 0 for trusted/unknown.
+uint16_t rasp_image_class_code(rasp_image_class_t c);
+uint8_t rasp_image_class_confidence(rasp_image_class_t c);
+// Shorthand: rasp_image_class_code(rasp_image_class(path, bundle_path)).
 uint16_t rasp_classify_image(const char *path, const char *bundle_path);
 
 // ---- Active countermeasures (opt-in) ------------------------------------------------

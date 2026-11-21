@@ -6,8 +6,9 @@
 //   B. dyld's own `dyld_all_image_infos` structure, located through
 //      task_info(TASK_DYLD_INFO) and read directly from memory.
 // If B lists more images than A, someone is filtering the dyld API.
-// Every image path is classified by allow-listed location (system, cryptex,
-// own bundle) rather than only by a deny-list of names.
+// Every image path is classified by rasp_image_class() (rasp_classify.c):
+// exact identities for injectors and instrumentation, allow-listed locations
+// for system and bundle code, and broad markers only as indicators.
 
 #include "rasp_internal.h"
 #include <TargetConditionals.h>
@@ -116,36 +117,7 @@ static bool has_prefix_obf(const char *path, int misc) {
     return r;
 }
 
-static bool in_bundle(const char *path, const char *bundle) {
-    if (!bundle || !*bundle) return false;
-    size_t bl = strlen(bundle);
-    if (strncmp(path, bundle, bl) == 0) return true;
-    // dyld reports /private/var/... while NSBundle may report /var/...
-    if (strncmp(path, "/private", 8) == 0 && strncmp(path + 8, bundle, bl) == 0) return true;
-    if (strncmp(bundle, "/private", 8) == 0 && strncmp(path, bundle + 8, bl - 8) == 0) return true;
-    return false;
-}
-
-uint16_t rasp_classify_image(const char *path, const char *bundle_path) {
-    if (!path) return 0;
-    char marker[RASP_STR_MAX];
-    for (uint16_t i = 0; i < RASP_LIST_IMAGE_MARKERS_COUNT; i++) {
-        if (!rasp_obf_decode(RASP_LIST_IMAGE_MARKERS_START + i, marker, sizeof marker)) continue;
-        bool hit = rasp_strcasestr(path, marker) != NULL;
-        rasp_secure_zero(marker, sizeof marker);
-        if (hit) return RASP_F_SUSPICIOUS_IMAGE;
-    }
-    if (rasp_rules_marker_match(path)) return RASP_F_SUSPICIOUS_IMAGE;
-#if TARGET_OS_SIMULATOR
-    return 0;   // simulator images live under Xcode.app / CoreSimulator
-#else
-    if (has_prefix_obf(path, RASP_MISC_SYSTEM) || has_prefix_obf(path, RASP_MISC_USR_LIB) ||
-        has_prefix_obf(path, RASP_MISC_CRYPTEXES) || has_prefix_obf(path, RASP_MISC_DEVELOPER) ||
-        has_prefix_obf(path, RASP_MISC_SYSTEM_DEVELOPER) || in_bundle(path, bundle_path))
-        return 0;
-    return RASP_F_UNEXPECTED_IMAGE_PATH;
-#endif
-}
+// Image classification lives in rasp_classify.c (rasp_image_class).
 
 static bool already_reported(const rasp_findings_t *out, uint16_t code, const char *detail) {
     for (uint32_t i = 0; i < out->count; i++)
@@ -154,13 +126,22 @@ static bool already_reported(const rasp_findings_t *out, uint16_t code, const ch
     return false;
 }
 
+// Detail is the image path. A path longer than the detail buffer keeps its
+// tail, so the basename (what re-validation needs) survives truncation.
+void rasp_image_detail(char d[RASP_DETAIL_LEN], const char *path) {
+    size_t n = strlen(path);
+    if (n < RASP_DETAIL_LEN) snprintf(d, RASP_DETAIL_LEN, "%s", path);
+    else snprintf(d, RASP_DETAIL_LEN, "...%s", path + n - (RASP_DETAIL_LEN - 4));
+}
+
 static void report_image(rasp_findings_t *out, const char *path, const char *bundle) {
-    uint16_t c = rasp_classify_image(path, bundle);
+    rasp_image_class_t cls = rasp_image_class(path, bundle);
+    uint16_t c = rasp_image_class_code(cls);
     if (!c) return;
     char d[RASP_DETAIL_LEN];
-    snprintf(d, sizeof d, "%s", path);
+    rasp_image_detail(d, path);
     if (!already_reported(out, c, d))
-        rasp_add(out, c, c == RASP_F_SUSPICIOUS_IMAGE ? 95 : 70, "%s", d);
+        rasp_add(out, c, rasp_image_class_confidence(cls), "%s", d);
 }
 
 // ---------------------------------------------------------------------------
