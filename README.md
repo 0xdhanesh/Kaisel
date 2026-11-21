@@ -41,16 +41,16 @@ It is **not** a certified product, it has no commercial-grade code obfuscation, 
 ## Features
 
 - **Jailbreak detection that is not a path grep.** Raw `svc #0x80` syscalls compared with libc to catch hiding tweaks, an `errno` existence oracle, sealed-system-volume and mount checks, sandbox-escape probes, and rootless (`/var/jb`) and rootful artefacts.
-- **Injection and hooking.** Two independent loaded-image lists (dyld info vs `_dyld` API), tweak-injector libraries, inline trampoline decoding, GOT / fishhook rebinding, `__interpose`, Objective-C swizzling and syscall-stub integrity.
+- **Injection and hooking.** Two independent loaded-image lists (dyld info vs `_dyld` API), explicit image classes (known jailbreak injector, instrumentation, broad marker, unknown external; since 1.4.0 only exact injector identities or jailbreak-root paths are conclusive), inline trampoline decoding, GOT / fishhook rebinding, `__interpose`, Objective-C swizzling and syscall-stub integrity.
 - **Frida and debuggers.** Frida threads, D-Bus handshake probe, anonymous executable memory, `P_TRACED`, `CS_DEBUGGED`, exception ports and the parent process.
 - **App integrity.** Entitlement blob (TrollStore and ldid fingerprints), FairPlay `cryptid`, provisioning profile, team and bundle ID, `__TEXT` hash.
 - **Residual signals for hidden jailbreaks** (indicators, never conclusive on their own): dyld integrity where dyld runs from disk, userspace-reboot state, and a Keychain marker of an earlier conclusive result. None of them fired against RootHide's Blacklist in the latest lab runs (see below).
-- **One jailbreak rule everywhere.** `JailbreakEvidence` decides what is conclusive for JB Check, the full kit and the server, so the apps agree.
+- **One jailbreak rule everywhere.** `JailbreakEvidence` decides what is conclusive for JB Check, the full kit, stored history and the server. Since 1.4.0 the rule and the image lists live in one manifest, `Server/classification.json`, and parity tests fail if the Swift, C and Python copies drift.
 - **Self-protection.** Runtime self-integrity snapshots, scattered inline guards, check-completion bookkeeping, randomised check order, a tamper-evident verdict and XOR-obfuscated indicator strings.
 - **Weighted scoring per domain.** Every signal is evidence with a weight; a damped noisy-OR produces device, runtime and app verdicts. Build and posture facts are informational unless you opt in.
 - **Hardware-backed sealing.** App Attest assertions and a Secure Enclave P-256 signature bind a report to a server nonce.
 - **Signed remote rules.** Add indicators and tune weights without an app release (ECDSA P-256, anti-rollback, expiry, additive only).
-- **Reference server** in Python that verifies App Attest and the seal, re-scores with its own policy, remembers keys that were once seen jailbroken, and answers `allow`, `step_up` or `deny`.
+- **Reference server** in Python that verifies App Attest and the seal, validates the report against its own SDK profile (strict mode by default since 1.4.0: an incomplete, malformed, unsupported or unauthenticated report is never `allow`), re-scores with its own policy, remembers App Attest keys that were once seen jailbroken, and answers `allow`, `step_up` or `deny`.
 
 ## Lab results so far
 
@@ -64,7 +64,9 @@ Real-device results recorded for 1.3.x on 2026-11-21. Screenshots are below; det
 | Stock device / iOS 26 | Not jailbroken | **Clean**, no false positive |
 | Stock iPhone18,1 / iOS 27.2.1 | Not jailbroken | **Clean** in 1.3.1 (1.3.0 had a dyld false positive, fixed). JB Check: Not jailbroken; Integrity Check: Trusted 0 |
 
-Not yet tested: palera1n (rootful and rootless), Dopamine on A12+, frida-server and FridaGadget, Shadow-class hiding tweaks, iOS 16 to 18. Result JSON for the runs above has not yet been exported into `Lab/results/`, so the hidden-case miss is recorded from screenshots only.
+Not yet tested: palera1n (rootful and rootless), Dopamine on A12+, frida-server and FridaGadget, Shadow-class hiding tweaks, iOS 16 to 25. Result JSON for the runs above has not yet been exported into `Lab/results/`, so the hidden-case miss is recorded from screenshots only. The 1.4.0 changes (unreleased) have not been run on any device yet. The full matrix of implemented, unit-tested and device-validated detection is in [Lab/COVERAGE.md](Lab/COVERAGE.md).
+
+"Not jailbroken" means no conclusive or indirect evidence was observed by the app. It is not proof that the device is stock.
 
 ### Evidence: Dopamine + RootHide, iPhone9,3, iOS 15.8.2
 
@@ -160,6 +162,8 @@ Full guide: [Integration](docs/INTEGRATION.md).
 | [Server](docs/SERVER.md) | App Attest, Play Integrity comparison, reference server, server-side verification |
 | [Limitations](docs/LIMITATIONS.md) | Known bypasses and what is still unproven |
 | [Lab](docs/LAB.md) | Validating on jailbroken devices; recorded runs and test status |
+| [Coverage](Lab/COVERAGE.md) | What is implemented, unit-tested and validated on real devices, and what has never been tested |
+| [1.4.0 validation](docs/V1.4.0-VALIDATION.md) | What changed in 1.4.0, the tests that ran, and the release gates still open |
 | [Pentesting iOS RASP](docs/Pentesting%20iOS%20RASP.md) | Adversary-centred assessment methodology in five layers, tiered test plan, results and reporting templates, standards mapping, and how Kaisel maps to each layer |
 
 ## Honest limitations
@@ -170,6 +174,8 @@ Any check running on a device the attacker controls can be bypassed. Kaisel make
 - **dyld integrity is an indicator, not proof.** From iOS 16 dyld runs from its copy in the shared cache, which differs from `/usr/lib/dyld` on any stock phone. Since 1.3.1 in-cache dyld is skipped, large differences are ignored, and `dyldModified` can never make a device "Jailbroken" on its own. In practice it only has a chance on iOS 15.
 - **Kernel-level hiding** defeats filesystem and code-signing checks, because the kernel itself answers. In-process signals (images, hooks, threads, memory, entitlements) still apply.
 - **Apple has no "this device is not jailbroken" attestation.** App Attest proves a genuine app on real hardware, not a stock OS.
+- **The server cannot prove the checks ran.** Check-completion bits are reported by the app. The reference server requires every expected check before `allow`, but App Attest only proves which app instance signed the report, not that measurements inside a compromised process are true.
+- **In-bundle code is classified by name only.** A renamed library injected into a re-signed app's bundle is not caught by image classification; App Attest, team ID and `__TEXT` hash checks are the backstops.
 - **Coverage is limited to the runs listed above.** Every other expectation in [`Lab/expected.json`](Lab/expected.json) is a hypothesis until tested. Please contribute lab results.
 
 Read [Limitations](docs/LIMITATIONS.md) before relying on Kaisel for any security decision. **Never gate anything security-critical on the client-side verdict alone.**

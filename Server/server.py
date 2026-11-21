@@ -14,6 +14,10 @@ Endpoints
   POST /v1/challenge                    -> {challengeId, challenge}
   POST /v1/attest  {challengeId, keyId, attestationObject}        -> {ok, environment}
   POST /v1/verify  {challengeId, sealed}                          -> decision
+
+Modes: --mode strict (default) fails closed: App Attest required, supported
+report schema, every expected check complete. --mode lab is permissive and
+labelled as such in every response; never expose it to production traffic.
   GET  /v1/rules.json, /v1/rules.sig    signed detection rules
 """
 from __future__ import annotations
@@ -70,16 +74,37 @@ def b64(x) -> bytes:
     return base64.b64decode(x) if x else b""
 
 
+def _deny(reason: str, **extra) -> dict:
+    return {"decision": "deny", "reasons": [reason], "appAttest": "not checked", "secureEnclave": "not checked",
+            "validation": {"action": "deny", "reasons": [reason]}, **extra}
+
+
+def _policy(cfg) -> pol.Policy:
+    # Older Cfg objects have no `mode`: --no-require-app-attest used to mean
+    # "permissive", which is lab mode in 1.4.0.
+    mode = getattr(cfg, "mode", None) or ("strict" if cfg.require_app_attest else "lab")
+    return pol.Policy(expected_distribution=cfg.expected_distribution, mode=mode,
+                      require_app_attest=cfg.require_app_attest, debugger_expected=cfg.debugger_expected)
+
+
 def verify_sealed(sealed: dict, challenge: bytes, store: Store, cfg) -> dict:
-    payload, nonce, cdh = b64(sealed.get("payload")), b64(sealed.get("nonce")), b64(sealed.get("clientDataHash"))
-    if nonce != challenge:
-        raise ValueError("nonce is not the issued challenge")
+    """Verifies one sealed report. Never raises for a bad report: tampering,
+    a wrong challenge or a malformed payload return a structured `deny`."""
+    policy = _policy(cfg)
+    if not isinstance(sealed, dict):
+        return _deny("sealed report is not a JSON object", mode=policy.mode)
+    try:
+        payload, nonce, cdh = b64(sealed.get("payload")), b64(sealed.get("nonce")), b64(sealed.get("clientDataHash"))
+    except (ValueError, TypeError):
+        return _deny("sealed report fields are not valid base64", mode=policy.mode)
+    if not payload or nonce != challenge:
+        return _deny("nonce is not the issued challenge", mode=policy.mode)
     if appattest.sha256(payload + nonce) != cdh:
-        raise ValueError("clientDataHash != SHA256(payload || nonce)")
+        return _deny("clientDataHash != SHA256(payload || nonce): payload or hash tampered", mode=policy.mode)
 
     result = {"appAttest": "missing", "secureEnclave": "missing"}
     key_id = sealed.get("appAttestKeyId")
-    device = store.devices.get(key_id) if key_id else None
+    device = store.devices.get(key_id) if isinstance(key_id, str) and not key_id.startswith("_") else None
     if sealed.get("appAttestAssertion"):
         if not device:
             result["appAttest"] = "unknown key (not enrolled)"
@@ -88,16 +113,19 @@ def verify_sealed(sealed: dict, challenge: bytes, store: Store, cfg) -> dict:
                 device["counter"] = appattest.verify_assertion(
                     b64(sealed["appAttestAssertion"]), cdh, device["publicKeyPEM"], cfg.app_id, device["counter"])
                 result["appAttest"] = "verified"
-            except appattest.AttestationError as e:
+            except (appattest.AttestationError, ValueError, TypeError) as e:
                 result["appAttest"] = f"failed: {e}"
 
+    # A Secure Enclave signature proves possession of a key the client chose.
+    # It is evidence of continuity only once bound to an App Attest-verified
+    # instance; an unbound signature never authenticates the report.
     if sealed.get("secureEnclaveSignature") and sealed.get("secureEnclavePublicKey"):
-        se_pub = b64(sealed["secureEnclavePublicKey"])
         try:
+            se_pub = b64(sealed["secureEnclavePublicKey"])
             appattest.verify_secure_enclave(b64(sealed["secureEnclaveSignature"]), se_pub, cdh)
-            if device is not None:
+            if device is not None and result["appAttest"] == "verified":
                 bound = device.get("sePublicKey")
-                if bound is None and result["appAttest"] == "verified":
+                if bound is None:
                     device["sePublicKey"] = base64.b64encode(se_pub).decode()   # bind on first verified use
                     result["secureEnclave"] = "verified (bound)"
                 elif bound == base64.b64encode(se_pub).decode():
@@ -105,27 +133,30 @@ def verify_sealed(sealed: dict, challenge: bytes, store: Store, cfg) -> dict:
                 else:
                     result["secureEnclave"] = "key changed"
             else:
-                result["secureEnclave"] = "signature valid (unbound)"
-        except appattest.AttestationError as e:
+                result["secureEnclave"] = "signature valid (unbound, not authentication)"
+        except (appattest.AttestationError, ValueError, TypeError) as e:
             result["secureEnclave"] = f"failed: {e}"
     with store.lock:
         store.save()
 
-    report = json.loads(payload)
-    policy = pol.Policy(expected_distribution=cfg.expected_distribution,
-                        require_app_attest=cfg.require_app_attest,
-                        debugger_expected=cfg.debugger_expected)
-    assessment = pol.assess(report.get("signals", []), policy)
+    try:
+        report = json.loads(payload)
+    except ValueError:
+        return _deny("payload is not JSON", mode=policy.mode, **result)
+    validation = pol.validate_report(report, policy)
+    signals = report.get("signals") if isinstance(report, dict) and isinstance(report.get("signals"), list) else []
+    signals = [x for x in signals if isinstance(x, dict) and pol._is_int(x.get("code"))
+               and pol._is_int(x.get("confidence"))]
+    assessment = pol.assess(signals, policy)
 
-    # Per-key history: a hidden app keeps its Keychain, so the same Secure
-    # Enclave key (or App Attest key) signs later, clean-looking reports.
-    hist_key = None
-    if result["secureEnclave"].startswith(("verified", "signature valid")):
-        hist_key = "se:" + sealed["secureEnclavePublicKey"]
-    elif result["appAttest"] == "verified":
-        hist_key = "aa:" + key_id
+    # Per-device history, keyed only by an App Attest-verified key: an
+    # arbitrary self-generated key must not create or clear device history.
+    # A 1.3.x entry keyed by a Secure Enclave key is still read when that key
+    # is bound to this verified App Attest instance.
     extra_reasons: list = []
-    if hist_key:
+    if result["appAttest"] == "verified":
+        hist_key = "aa:" + key_id
+        legacy_keys = ["se:" + sealed["secureEnclavePublicKey"]] if result["secureEnclave"].startswith("verified") else []
         with store.lock:
             history = store.devices.setdefault("_history", {})
             evidence = assessment["device"]["jailbreakEvidence"]
@@ -134,14 +165,17 @@ def verify_sealed(sealed: dict, challenge: bytes, store: Store, cfg) -> dict:
                                      "evidence": [{"code": e["code"], "detail": e["detail"]} for e in evidence]}
                 store.save()
             elif not evidence:
-                entry = history.get(hist_key)
-                extra_reasons = pol.apply_history(assessment, entry["firstSeen"] if pol.history_valid(entry) else None)
-    decision, reasons = pol.decide(assessment, result["appAttest"], policy)
+                entry = next((history.get(k) for k in [hist_key] + legacy_keys if pol.history_valid(history.get(k))),
+                             None)
+                extra_reasons = pol.apply_history(assessment, entry["firstSeen"] if entry else None)
+    decision, reasons = pol.decide(assessment, result["appAttest"], policy, validation)
     reasons += extra_reasons
-    return {"decision": decision, "reasons": reasons, **result,
+    rep = report if isinstance(report, dict) else {}
+    build = rep.get("build") if isinstance(rep.get("build"), dict) else {}
+    return {"decision": decision, "reasons": reasons, "mode": policy.mode, "validation": validation, **result,
             "device": assessment["device"], "runtime": assessment["runtime"], "app": assessment["app"],
-            "clientVerdict": report.get("verdict"), "rulesVersion": report.get("rulesVersion"),
-            "textSHA256": report.get("build", {}).get("textSHA256")}
+            "clientVerdict": rep.get("verdict"), "sdkVersion": rep.get("sdkVersion"),
+            "rulesVersion": rep.get("rulesVersion"), "textSHA256": build.get("textSHA256")}
 
 
 def make_handler(store: Store, cfg):
@@ -185,8 +219,11 @@ def make_handler(store: Store, cfg):
                         store.save()
                     return self._send(200, {"ok": True, "environment": k.environment})
                 if self.path == "/v1/verify":
-                    ch = store.take_challenge(body["challengeId"])
-                    return self._send(200, verify_sealed(body["sealed"], ch, store, cfg))
+                    try:
+                        ch = store.take_challenge(body["challengeId"])
+                    except (ValueError, KeyError, TypeError) as e:
+                        return self._send(400, _deny(f"challenge rejected: {e}"))
+                    return self._send(200, verify_sealed(body.get("sealed"), ch, store, cfg))
                 self._send(404, {"error": "not found"})
             except (appattest.AttestationError, ValueError, KeyError) as e:
                 self._send(400, {"error": str(e)})
@@ -204,7 +241,10 @@ def main(argv=None):
     ap.add_argument("--allow-development", action="store_true", help="accept the App Attest development environment")
     ap.add_argument("--expected-distribution", default="appStore",
                     choices=["appStore", "enterprise", "adHoc", "development", "none"])
-    ap.add_argument("--no-require-app-attest", action="store_true")
+    ap.add_argument("--mode", choices=["strict", "lab"], default="strict",
+                    help="strict (default): fail closed. lab: permissive test bench, never for production")
+    ap.add_argument("--no-require-app-attest", action="store_true",
+                    help="lab mode only: accept reports without App Attest as step_up (implies --mode lab)")
     ap.add_argument("--debugger-expected", action="store_true")
     ap.add_argument("--rules-dir", default=os.path.join(os.path.dirname(os.path.abspath(__file__)), "rules"))
     ap.add_argument("--db", default="devices.json")
@@ -219,6 +259,7 @@ def main(argv=None):
         root_ca = open(a.root_ca, "rb").read()
         allow_development = a.allow_development
         expected_distribution = None if a.expected_distribution == "none" else a.expected_distribution
+        mode = "lab" if a.no_require_app_attest else a.mode
         require_app_attest = not a.no_require_app_attest
         debugger_expected = a.debugger_expected
         rules_dir = a.rules_dir
@@ -229,7 +270,9 @@ def main(argv=None):
         store.save()
         print(f"cleared jailbreak history for {n} device key(s)")
     srv = ThreadingHTTPServer((a.host, a.port), make_handler(store, Cfg))
-    print(f"listening on http://{a.host}:{a.port}  app-id={a.app_id}")
+    print(f"listening on http://{a.host}:{a.port}  app-id={a.app_id}  mode={Cfg.mode}")
+    if Cfg.mode == "lab":
+        print("WARNING: lab mode is permissive (no App Attest requirement, legacy reports). Never use it in production.")
     srv.serve_forever()
 
 

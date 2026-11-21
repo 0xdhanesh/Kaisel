@@ -9,6 +9,9 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/mount.h>
+#ifndef __APPLE__
+#include <sys/vfs.h>   // struct statfs for host-side tests (Tests/CClassifier)
+#endif
 
 #define RASP_INLINE static inline __attribute__((always_inline))
 
@@ -139,6 +142,14 @@ void rasp_random_token(char out[17]);
 // ---------------------------------------------------------------------------
 // Image helpers (rasp_images.c)
 // ---------------------------------------------------------------------------
+// Path helpers (rasp_classify.c): /private/var -> /var normalisation and a
+// directory-boundary prefix test ("/var/App.app" does not contain "/var/App.app2/x").
+const char *rasp_path_normalise(const char *path);
+bool rasp_path_within(const char *path, const char *dir);
+// Image path as a finding detail; keeps the tail of over-long paths.
+void rasp_image_detail(char d[RASP_DETAIL_LEN], const char *path);
+
+#ifdef __APPLE__
 #include <mach-o/loader.h>
 // Returns the name of the image containing `addr`, or NULL. Uses dladdr.
 const char *rasp_image_name_for(const void *addr);
@@ -149,5 +160,6 @@ typedef bool (*rasp_lc_visitor)(const struct load_command *lc, void *ctx);
 void rasp_for_each_load_command(const struct mach_header_64 *mh, rasp_lc_visitor v, void *ctx);
 // Main executable header and slide.
 const struct mach_header_64 *rasp_main_header(intptr_t *slide);
+#endif
 
 #endif

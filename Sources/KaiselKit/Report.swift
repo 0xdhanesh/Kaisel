@@ -101,8 +101,13 @@ public struct AppBuildFacts: Codable, Hashable, Sendable {
 /// - `verdict`: worst of the enforced domains. Advisory: the server should
 ///   re-score `signals` from a `SealedReport` it can verify.
 public struct IntegrityReport: Codable, Hashable, Sendable {
+    /// Report format version checked by the server (1.4.0). Reports from
+    /// 1.3.x have no such field and are treated as schema 1 (lab mode only).
+    public static let currentSchemaVersion = 2
+
     public let id: UUID
     public let timestamp: Date
+    public let reportSchemaVersion: Int
     public let sdkVersion: String
     public let verdict: Verdict
     public let score: Int
@@ -112,6 +117,9 @@ public struct IntegrityReport: Codable, Hashable, Sendable {
     public let posture: DevicePosture
     public let build: AppBuildFacts
     public let signals: [Signal]
+    /// Bitmask of `RASP_CHECK_*` that ran to completion. Self-reported: a
+    /// compromised process can lie about it, so the server derives the
+    /// expected set itself and treats a missing bit as incomplete coverage.
     public let checksCompleted: UInt32
     public let checksExpected: UInt32
     public let observabilityNotes: [String]

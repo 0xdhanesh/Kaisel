@@ -11,7 +11,7 @@ import CIntegrityCore
 /// let sealed = try await kit.seal(report, serverNonce: nonce)   // send to backend
 /// ```
 public final class IntegrityKit: @unchecked Sendable {
-    public static let sdkVersion = "1.3.1"
+    public static let sdkVersion = "1.4.0"
 
     public let configuration: IntegrityConfiguration
     public var scorer = RiskScorer()
@@ -141,6 +141,7 @@ public final class IntegrityKit: @unchecked Sendable {
         let report = IntegrityReport(
             id: UUID(),
             timestamp: started,
+            reportSchemaVersion: IntegrityReport.currentSchemaVersion,
             sdkVersion: Self.sdkVersion,
             verdict: worst.verdict,
             score: worst.score,
@@ -159,12 +160,17 @@ public final class IntegrityKit: @unchecked Sendable {
         return report
     }
 
-    /// Images dlopen'ed since the previous evaluation, filtered to the ones
-    /// that are suspicious or come from unexpected locations.
+    /// Images dlopen'ed since the previous evaluation that are not trusted.
+    /// Each one is reported with its own class (200 injector, 205
+    /// instrumentation, 206 marker, 201 unknown external), so the conclusive
+    /// rule is the same as for images present at start-up, plus an
+    /// `imageAddedAtRuntime` indicator recording that it arrived late.
+    /// Before 1.4.0 a late image was conclusive whenever its confidence was 95
+    /// and its name did not mention Frida.
     private func newlyLoadedImages() -> [RawSignal] {
-        CoreBridge.drainNewImages().compactMap { path in
-            guard let c = CoreBridge.classifyImage(path) else { return nil }
-            return RawSignal(.imageAddedAtRuntime, c == .suspiciousImage ? 95 : 70, path)
+        CoreBridge.drainNewImages().flatMap { path -> [RawSignal] in
+            guard let e = CoreBridge.classifyImageEvidence(path) else { return [] }
+            return [RawSignal(e.code, e.confidence, path), RawSignal(.imageAddedAtRuntime, 70, path)]
         }
     }
 
@@ -199,9 +205,13 @@ public final class IntegrityKit: @unchecked Sendable {
     /// create such regions (seen on iOS 27 with no instrumentation present).
     /// It is scored only when another instrumentation or hooking signal in the
     /// same report corroborates it; otherwise it is kept as informational.
+    /// Mirrored by `corroboratingCodes` in Server/classification.json (parity-tested).
+    static let corroboratingCodes: Set<FindingCode> = [.fridaThread, .fridaDBus, .fridaMemoryMarker, .fridaPortOpen,
+                                                       .inlineHook, .symbolRebound, .suspiciousImage,
+                                                       .instrumentationImage, .imageListMismatch]
+
     static func requireCorroboration(_ signals: [Signal]) -> [Signal] {
-        let corroborating: Set<FindingCode> = [.fridaThread, .fridaDBus, .fridaMemoryMarker, .fridaPortOpen,
-                                               .inlineHook, .symbolRebound, .suspiciousImage, .imageListMismatch]
+        let corroborating = corroboratingCodes
         let corroborated = signals.contains { corroborating.contains($0.code) && !$0.informational }
         guard !corroborated else { return signals }
         return signals.map { s in

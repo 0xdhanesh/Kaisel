@@ -6,7 +6,11 @@ What Kaisel cannot do, and what has not been proven yet.
 
 Be clear about this before relying on the kit:
 
-- **No jailbroken-device testing yet.** The only real-device run so far is a stock iPhone18,1 on iOS 27.2.1. Every jailbreak, hiding-tweak and Frida expectation in `Lab/expected.json` is a hypothesis until the [lab checklist](../Lab/LAB_CHECKLIST.md) has been run.
+- **One jailbroken device so far.** Real-device runs are listed in [Lab/COVERAGE.md](../Lab/COVERAGE.md): Dopamine + RootHide on an iPhone9,3 (iOS 15.8.2), stock iPhone18,1 (iOS 27.2.1), a stock iOS 26 device and one TrollStore install. All are screenshots or owner reports; no result JSON has been exported. Every other jailbreak, hiding-tweak and Frida expectation in `Lab/expected.json` is a hypothesis.
+- **1.4.0 has not been run on a device.** Its image-classification and server-validation changes are covered by unit tests only.
+- **"Not jailbroken" is not proof.** It means no conclusive or indirect evidence was observed by this process. Per-app hiding is a measured miss (below), and no client-side check can prove the OS is unmodified.
+- **In-bundle code is classified by identity only.** Since 1.4.0 images inside the app's bundle are trusted unless their exact name is a known instrumentation or injector library. A renamed library added to a re-signed bundle is not caught by image classification; App Attest, the team ID and the `__TEXT` hash are the backstops, and a build manifest is on the roadmap.
+- **Server validation cannot prove the checks ran.** Completion bits are self-reported. App Attest proves the genuine app instance signed the report, not that measurements inside a compromised process are true (see [Server](SERVER.md#strict-and-lab-modes-140)).
 - **Prologue decoding and stub checks** are heuristics. Apple can change the system stubs between releases.
 - **Self-integrity cannot see anything patched before the baseline.** For example, a dylib constructor that hooks before the kit initialises. The static decoder, the server-side `__TEXT` hash comparison and App Attest are the backstops.
 - **A determined attacker with code execution can bypass any on-device check.** That includes this kit's tamper evidence. App Attest verified on your server is the only part an attacker cannot forge without a genuine, unmodified app.
@@ -27,7 +31,8 @@ The point of this list is honesty. Every item below has been publicly demonstrat
 | **Hardware-breakpoint or watchpoint debugging** | No `BRK` in code. | `P_TRACED`, `CS_DEBUGGED`, exception ports and ppid remain. |
 | **Debugger attached after the check** | A launch-time check misses it. | `IntegrityMonitor`, and evaluating right before each sensitive operation. `CS_DEBUGGED` is sticky. |
 | **TrollStore install with crafted entitlements** | Detected through the entitlement blob, unless the attacker picks entitlements that are not on our list. | Extend the list; check `cryptid` and the team ID. |
-| **Instrumentation without Frida** (Dobby, custom inline hooks, `DYLD_INSERT` on a jailbroken device) | Partially covered by the generic trampoline, GOT and image allow-list checks. | The allow-list is location based, so unknown names are still caught. |
+| **Instrumentation without Frida** (Dobby, custom inline hooks, `DYLD_INSERT` on a jailbroken device) | Partially covered by the generic trampoline, GOT and image allow-list checks. | The allow-list is location based, so unknown names outside the bundle are still caught (201, an indicator). |
+| **A legitimate framework whose name contains a broad marker** (for example `CraneBank`) | Up to 1.3.1 this was a conclusive "Jailbroken" (found by code review, not observed). | Fixed in 1.4.0: broad markers are indicators and never apply to in-bundle images. |
 | **Simulator or emulation (Corellium)** | The simulator is detected. Virtualised iOS can look stock. | App Attest is not available on virtual devices: no assertion, no trust. |
 | **False positives** | Crash reporters (exception ports), MDM or enterprise re-signing (profile, team), SDKs that swizzle `UIApplication`, the app suspended in the background (`monitorIntervalStarved`). | Use `allowedExceptionPorts`, the distribution profiles, `weightOverrides` and `suppressedCodes`. |
 

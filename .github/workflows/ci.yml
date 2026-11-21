@@ -67,11 +67,21 @@ jobs:
           cache: pip
           cache-dependency-path: Server/requirements.txt
       - run: pip install -r Server/requirements.txt
-      - name: Unit tests
+      - name: Unit tests (validation, classification, client/server parity)
         working-directory: Server
         run: python -m unittest discover -s tests -v
+      - name: Lab result tooling tests
+        run: python -m unittest discover -s Lab/tests -v
       - name: Lab tools compile
-        run: python -m py_compile Lab/compare_results.py Scripts/gen_strings.py Server/rules_tool.py
+        run: python -m py_compile Lab/compare_results.py Scripts/gen_strings.py Server/rules_tool.py Server/classification.py
+
+  c-classifier:
+    name: C image classifier (host build, shared fixtures)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and run against Tests/Fixtures and Server/classification.py
+        run: python3 Tests/CClassifier/run_tests.py
 
   lint:
     name: Shell scripts and string generator
@@ -80,6 +90,11 @@ jobs:
       - uses: actions/checkout@v4
       - name: ShellCheck
         run: shellcheck Scripts/*.sh
-      - name: String generator runs
-        # Output uses fresh random keys on every run, so only check that it succeeds.
-        run: python3 Scripts/gen_strings.py
+      - name: Committed string table matches the source lists
+        # Seed-independent: decodes the committed header and compares it with the lists.
+        run: python3 Scripts/gen_strings.py --verify
+      - name: String generator is reproducible with a fixed seed
+        run: |
+          RASP_SEED=1 python3 Scripts/gen_strings.py && cp Sources/CIntegrityCore/rasp_strings_table.h /tmp/a.h
+          RASP_SEED=1 python3 Scripts/gen_strings.py && cmp /tmp/a.h Sources/CIntegrityCore/rasp_strings_table.h
+          python3 Scripts/gen_strings.py --verify
