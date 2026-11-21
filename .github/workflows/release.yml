@@ -1,0 +1,34 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  unsigned-ipas:
+    name: Build unsigned IPAs
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Build
+        run: Scripts/build_unsigned_ipa.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kaisel-unsigned-ipas
+          path: dist/*
+      - name: Publish GitHub release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true
+          body: |
+            Unsigned IPAs for Impactor, Sideloadly or AltStore. They are signed with your Apple ID on install.
+            See [Sideloading](https://github.com/0xdhanesh/Kaisel/blob/main/docs/SIDELOADING.md).
+            Verify downloads with `shasum -a 256 -c SHA256SUMS.txt`.

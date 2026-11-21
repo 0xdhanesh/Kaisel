@@ -1,0 +1,85 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  apps:
+    name: Build apps (${{ matrix.scheme }})
+    runs-on: macos-15
+    strategy:
+      fail-fast: false
+      matrix:
+        scheme: [KaiselJBCheck, KaiselIntegrityCheck, KaiselIntegrityCheckAttest]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate Xcode project
+        working-directory: Apps
+        run: xcodegen generate
+      - name: Build (unsigned)
+        run: |
+          set -o pipefail
+          xcodebuild -project Apps/Kaisel.xcodeproj -scheme "${{ matrix.scheme }}" \
+            -configuration Release -destination 'generic/platform=iOS' \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            build | xcpretty || exit "${PIPESTATUS[0]}"
+
+  package-tests:
+    name: KaiselKit unit tests
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pick an iPhone simulator
+        id: sim
+        run: |
+          UDID=$(xcrun simctl list devices available -j | python3 -c '
+          import json, sys
+          d = json.load(sys.stdin)["devices"]
+          ios = sorted((k for k in d if "iOS" in k), reverse=True)
+          print(next(x["udid"] for k in ios for x in d[k] if x["name"].startswith("iPhone")))')
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+      - name: Test
+        run: |
+          set -o pipefail
+          xcodebuild test -scheme KaiselKit -destination "id=${{ steps.sim.outputs.udid }}" \
+            | xcpretty || exit "${PIPESTATUS[0]}"
+
+  server:
+    name: Reference server tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: Server/requirements.txt
+      - run: pip install -r Server/requirements.txt
+      - name: Unit tests
+        working-directory: Server
+        run: python -m unittest discover -s tests -v
+      - name: Lab tools compile
+        run: python -m py_compile Lab/compare_results.py Scripts/gen_strings.py Server/rules_tool.py
+
+  lint:
+    name: Shell scripts and string generator
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: ShellCheck
+        run: shellcheck Scripts/*.sh
+      - name: String generator runs
+        # Output uses fresh random keys on every run, so only check that it succeeds.
+        run: python3 Scripts/gen_strings.py

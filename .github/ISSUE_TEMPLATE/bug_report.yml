@@ -1,0 +1,27 @@
+name: Bug report
+description: Something does not build, crashes or behaves incorrectly.
+labels: [bug]
+body:
+  - type: input
+    id: version
+    attributes: { label: Kaisel version or commit }
+    validations: { required: true }
+  - type: dropdown
+    id: app
+    attributes:
+      label: Component
+      options: [Kaisel JB Check, Kaisel Integrity Check, KaiselKit package, Reference server, Build scripts]
+    validations: { required: true }
+  - type: input
+    id: device
+    attributes: { label: Device and iOS version, placeholder: "iPhone 15, iOS 18.2" }
+  - type: input
+    id: xcode
+    attributes: { label: Xcode version (build issues) }
+  - type: textarea
+    id: what
+    attributes: { label: What happened, description: Include the error output. }
+    validations: { required: true }
+  - type: textarea
+    id: expected
+    attributes: { label: What you expected }

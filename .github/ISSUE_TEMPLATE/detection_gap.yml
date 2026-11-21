@@ -1,0 +1,24 @@
+name: Detection gap or lab result
+description: A jailbreak, hiding tweak or instrumentation setup that Kaisel misses, or a lab run to record.
+labels: [detection]
+body:
+  - type: input
+    id: setup
+    attributes: { label: Jailbreak or tool and version, placeholder: "Dopamine 2.x + Choicy, iOS 16.5" }
+    validations: { required: true }
+  - type: input
+    id: device
+    attributes: { label: Device }
+  - type: textarea
+    id: json
+    attributes: { label: Result JSON (redacted), render: json }
+  - type: textarea
+    id: notes
+    attributes: { label: Notes, description: Hiding settings, how the tool was attached, anything relevant. }
+  - type: checkboxes
+    id: auth
+    attributes:
+      label: Authorisation
+      options:
+        - label: I tested on a device I own or am authorised to test.
+          required: true
