@@ -1,0 +1,30 @@
+// Release hardening for apps that embed KaiselKit.
+// Referenced from project.yml (configFiles: Release). Copy into your own app.
+
+// Strip all symbols from the shipped binary (keeps the dSYM for crash symbolication).
+DEPLOYMENT_POSTPROCESSING = YES
+STRIP_INSTALLED_PRODUCT = YES
+STRIP_STYLE = all
+COPY_PHASE_STRIP = YES
+DEBUG_INFORMATION_FORMAT = dwarf-with-dsym
+DEAD_CODE_STRIPPING = YES
+STRIP_SWIFT_SYMBOLS = YES
+
+// Hide C symbols by default, so rasp_* entry points are not in the export table.
+GCC_SYMBOLS_PRIVATE_EXTERN = YES
+GCC_INLINES_ARE_PRIVATE_EXTERN = YES
+
+// Optimise: inlines the raw-syscall helpers and removes assertions.
+GCC_OPTIMIZATION_LEVEL = s
+SWIFT_OPTIMIZATION_LEVEL = -O
+SWIFT_COMPILATION_MODE = wholemodule
+LLVM_LTO = YES
+
+// Optional, not enabled here (see README "Build hardening"):
+//   SWIFT_REFLECTION_METADATA_LEVEL = none   hides Swift type/case names, but
+//       breaks String(describing:) of enums and some SwiftUI/Mirror use.
+//   CODE_SIGN_INJECT_BASE_ENTITLEMENTS = NO  drops get-task-allow, but a
+//       development-exported IPA can then no longer be debugged.
+
+ENABLE_TESTABILITY = NO
+VALIDATE_PRODUCT = YES

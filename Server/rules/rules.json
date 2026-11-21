@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "issuedAt": "2026-11-21T00:00:00Z",
+  "expiresAt": "2027-05-21T00:00:00Z",
+  "minSdkVersion": "1.2.0",
+  "extraJailbreakPaths": ["/var/jb/usr/lib/libroothide.dylib", "/var/jb/Applications/Dopamine.app"],
+  "extraImageMarkers": ["roothidepatch"],
+  "extraURLSchemes": [],
+  "extraFridaPorts": [27044],
+  "weightOverrides": {"503": 0.40},
+  "thresholds": {"low": 15, "elevated": 35, "high": 60, "compromised": 85}
+}

@@ -1,0 +1,434 @@
+{
+ "100": {
+  "category": "jailbreakArtefact",
+  "domain": "device",
+  "hard": false,
+  "name": "jailbreakPathPresent",
+  "title": "Jailbreak artefact present",
+  "weight": 0.6
+ },
+ "1000": {
+  "category": "tamper",
+  "domain": "runtime",
+  "hard": true,
+  "name": "checkSuppressed",
+  "title": "A check did not run to completion",
+  "weight": 0.85
+ },
+ "1001": {
+  "category": "tamper",
+  "domain": "runtime",
+  "hard": false,
+  "name": "findingsOverflow",
+  "title": "Findings buffer overflowed",
+  "weight": 0.3
+ },
+ "1002": {
+  "category": "runtimeEnvironment",
+  "domain": "device",
+  "hard": false,
+  "name": "simulator",
+  "title": "Running in the iOS Simulator",
+  "weight": 0.5
+ },
+ "1003": {
+  "category": "tamper",
+  "domain": "runtime",
+  "hard": false,
+  "name": "monitorIntervalStarved",
+  "title": "Monitor did not run on schedule",
+  "weight": 0.4
+ },
+ "101": {
+  "category": "jailbreakArtefact",
+  "domain": "device",
+  "hard": false,
+  "name": "jailbreakPathErrnoOracle",
+  "title": "Jailbreak artefact inferred from errno",
+  "weight": 0.45
+ },
+ "102": {
+  "category": "filesystemIntegrity",
+  "domain": "device",
+  "hard": false,
+  "name": "symlinkedSystemDirectory",
+  "title": "System directory replaced by symlink",
+  "weight": 0.7
+ },
+ "103": {
+  "category": "filesystemIntegrity",
+  "domain": "device",
+  "hard": false,
+  "name": "rootVolumeNotSealed",
+  "title": "Root volume is not the sealed snapshot",
+  "weight": 0.55
+ },
+ "104": {
+  "category": "filesystemIntegrity",
+  "domain": "device",
+  "hard": true,
+  "name": "rootVolumeWritable",
+  "title": "Root volume mounted read-write",
+  "weight": 0.9
+ },
+ "105": {
+  "category": "jailbreakArtefact",
+  "domain": "device",
+  "hard": true,
+  "name": "rootlessJailbreakRoot",
+  "title": "Rootless jailbreak root (/var/jb) present",
+  "weight": 0.95
+ },
+ "108": {
+  "category": "tamper",
+  "domain": "device",
+  "hard": true,
+  "name": "libcSyscallMismatch",
+  "title": "libc and kernel disagree (hiding hook)",
+  "weight": 0.95
+ },
+ "109": {
+  "category": "tamper",
+  "domain": "runtime",
+  "hard": false,
+  "name": "canaryFailed",
+  "title": "Control probe failed",
+  "weight": 0.8
+ },
+ "120": {
+  "category": "sandbox",
+  "domain": "device",
+  "hard": true,
+  "name": "sandboxWrite",
+  "title": "Wrote outside the app container",
+  "weight": 0.95
+ },
+ "121": {
+  "category": "sandbox",
+  "domain": "device",
+  "hard": true,
+  "name": "sandboxFork",
+  "title": "fork() permitted",
+  "weight": 0.9
+ },
+ "122": {
+  "category": "sandbox",
+  "domain": "device",
+  "hard": false,
+  "name": "sandboxRead",
+  "title": "Read another domain's directory",
+  "weight": 0.55
+ },
+ "200": {
+  "category": "injection",
+  "domain": "runtime",
+  "hard": true,
+  "name": "suspiciousImage",
+  "title": "Known injection/hooking library loaded",
+  "weight": 0.9
+ },
+ "201": {
+  "category": "injection",
+  "domain": "runtime",
+  "hard": false,
+  "name": "unexpectedImagePath",
+  "title": "Image loaded from unexpected location",
+  "weight": 0.5
+ },
+ "202": {
+  "category": "injection",
+  "domain": "runtime",
+  "hard": true,
+  "name": "imageListMismatch",
+  "title": "dyld image list is being filtered",
+  "weight": 0.85
+ },
+ "203": {
+  "category": "injection",
+  "domain": "runtime",
+  "hard": false,
+  "name": "imageAddedAtRuntime",
+  "title": "Suspicious image loaded at runtime",
+  "weight": 0.6
+ },
+ "204": {
+  "category": "injection",
+  "domain": "runtime",
+  "hard": false,
+  "name": "interposeSection",
+  "title": "DYLD interposing section in non-system image",
+  "weight": 0.6
+ },
+ "300": {
+  "category": "hooking",
+  "domain": "runtime",
+  "hard": true,
+  "name": "inlineHook",
+  "title": "Inline hook trampoline",
+  "weight": 0.85
+ },
+ "301": {
+  "category": "hooking",
+  "domain": "runtime",
+  "hard": true,
+  "name": "symbolRebound",
+  "title": "Symbol pointer rebound (fishhook/interposing)",
+  "weight": 0.85
+ },
+ "302": {
+  "category": "debugger",
+  "domain": "runtime",
+  "hard": false,
+  "name": "breakpointInstruction",
+  "title": "Software breakpoint at function entry",
+  "weight": 0.6
+ },
+ "303": {
+  "category": "hooking",
+  "domain": "runtime",
+  "hard": false,
+  "name": "objcSwizzled",
+  "title": "Objective-C method implementation moved",
+  "weight": 0.6
+ },
+ "304": {
+  "category": "hooking",
+  "domain": "runtime",
+  "hard": false,
+  "name": "syscallStubAltered",
+  "title": "Syscall stub does not trap",
+  "weight": 0.7
+ },
+ "305": {
+  "category": "hooking",
+  "domain": "runtime",
+  "hard": false,
+  "name": "symbolForeignImage",
+  "title": "System symbol resolves outside system images",
+  "weight": 0.8
+ },
+ "306": {
+  "category": "hooking",
+  "domain": "runtime",
+  "hard": true,
+  "name": "prologueChanged",
+  "title": "Function code changed after start-up",
+  "weight": 0.9
+ },
+ "400": {
+  "category": "debugger",
+  "domain": "runtime",
+  "hard": false,
+  "name": "ptraced",
+  "title": "Process is being traced",
+  "weight": 0.8
+ },
+ "401": {
+  "category": "debugger",
+  "domain": "runtime",
+  "hard": false,
+  "name": "codeSigningDebugged",
+  "title": "Kernel marked process CS_DEBUGGED",
+  "weight": 0.6
+ },
+ "402": {
+  "category": "debugger",
+  "domain": "runtime",
+  "hard": false,
+  "name": "exceptionPorts",
+  "title": "Task exception ports registered",
+  "weight": 0.35
+ },
+ "403": {
+  "category": "debugger",
+  "domain": "runtime",
+  "hard": false,
+  "name": "parentProcessUnexpected",
+  "title": "Parent is not launchd",
+  "weight": 0.5
+ },
+ "500": {
+  "category": "instrumentation",
+  "domain": "runtime",
+  "hard": true,
+  "name": "fridaThread",
+  "title": "Frida runtime thread",
+  "weight": 0.95
+ },
+ "501": {
+  "category": "instrumentation",
+  "domain": "runtime",
+  "hard": false,
+  "name": "fridaPortOpen",
+  "title": "Instrumentation port listening",
+  "weight": 0.35
+ },
+ "502": {
+  "category": "instrumentation",
+  "domain": "runtime",
+  "hard": true,
+  "name": "fridaDBus",
+  "title": "frida-server D-Bus endpoint",
+  "weight": 0.95
+ },
+ "503": {
+  "category": "instrumentation",
+  "domain": "runtime",
+  "hard": false,
+  "name": "anonymousExecutableMemory",
+  "title": "Anonymous executable memory",
+  "weight": 0.35
+ },
+ "504": {
+  "category": "instrumentation",
+  "domain": "runtime",
+  "hard": true,
+  "name": "fridaMemoryMarker",
+  "title": "Frida agent marker in memory",
+  "weight": 0.95
+ },
+ "600": {
+  "category": "codeSigning",
+  "domain": "app",
+  "hard": true,
+  "name": "codeSignatureInvalid",
+  "title": "Code signature not valid",
+  "weight": 0.9
+ },
+ "601": {
+  "category": "codeSigning",
+  "domain": "app",
+  "hard": false,
+  "name": "getTaskAllow",
+  "title": "Debuggable build (get-task-allow)",
+  "weight": 0.5
+ },
+ "602": {
+  "category": "codeSigning",
+  "domain": "device",
+  "hard": true,
+  "name": "suspiciousEntitlement",
+  "title": "Entitlement not grantable to App Store apps",
+  "weight": 0.85
+ },
+ "603": {
+  "category": "codeSigning",
+  "domain": "app",
+  "hard": false,
+  "name": "binaryDecrypted",
+  "title": "Binary not FairPlay-encrypted (not an App Store install)",
+  "weight": 0.6
+ },
+ "610": {
+  "category": "tamper",
+  "domain": "runtime",
+  "hard": true,
+  "name": "textModified",
+  "title": "App code modified in memory",
+  "weight": 0.95
+ },
+ "700": {
+  "category": "environment",
+  "domain": "runtime",
+  "hard": true,
+  "name": "envInjection",
+  "title": "DYLD_* injection variable set",
+  "weight": 0.9
+ },
+ "701": {
+  "category": "environment",
+  "domain": "device",
+  "hard": true,
+  "name": "envJailbreak",
+  "title": "Jailbreak environment variable set",
+  "weight": 0.95
+ },
+ "702": {
+  "category": "tamper",
+  "domain": "runtime",
+  "hard": true,
+  "name": "envGetenvMismatch",
+  "title": "getenv() hides variables",
+  "weight": 0.9
+ },
+ "800": {
+  "category": "developerMode",
+  "domain": "posture",
+  "hard": false,
+  "name": "developerModeEnabled",
+  "title": "Developer Mode enabled",
+  "weight": 0.2
+ },
+ "801": {
+  "category": "developerMode",
+  "domain": "posture",
+  "hard": false,
+  "name": "developerModeInferred",
+  "title": "Developer Mode inferred",
+  "weight": 0.15
+ },
+ "802": {
+  "category": "developerMode",
+  "domain": "posture",
+  "hard": false,
+  "name": "developerDiskImageMounted",
+  "title": "Developer Disk Image mounted",
+  "weight": 0.25
+ },
+ "900": {
+  "category": "codeSigning",
+  "domain": "app",
+  "hard": false,
+  "name": "provisioningProfilePresent",
+  "title": "Embedded provisioning profile (non-App Store signing)",
+  "weight": 0.35
+ },
+ "901": {
+  "category": "codeSigning",
+  "domain": "app",
+  "hard": true,
+  "name": "teamIdentifierMismatch",
+  "title": "Signed by an unexpected team (re-signed)",
+  "weight": 0.9
+ },
+ "902": {
+  "category": "codeSigning",
+  "domain": "app",
+  "hard": true,
+  "name": "bundleIdentifierMismatch",
+  "title": "Unexpected bundle identifier",
+  "weight": 0.9
+ },
+ "903": {
+  "category": "codeSigning",
+  "domain": "app",
+  "hard": false,
+  "name": "enterpriseProfile",
+  "title": "Enterprise (in-house) profile",
+  "weight": 0.4
+ },
+ "904": {
+  "category": "filesystemIntegrity",
+  "domain": "device",
+  "hard": false,
+  "name": "bundlePathUnexpected",
+  "title": "App installed outside the user app container",
+  "weight": 0.7
+ },
+ "905": {
+  "category": "jailbreakArtefact",
+  "domain": "device",
+  "hard": false,
+  "name": "jailbreakURLScheme",
+  "title": "Package manager URL scheme registered",
+  "weight": 0.55
+ },
+ "907": {
+  "category": "codeSigning",
+  "domain": "app",
+  "hard": true,
+  "name": "textHashMismatch",
+  "title": "__TEXT hash differs from build",
+  "weight": 0.9
+ }
+}

@@ -1,0 +1,98 @@
+# XcodeGen spec for the Kaisel apps.
+#   brew install xcodegen && cd Apps && xcodegen generate && open Kaisel.xcodeproj
+#
+# Schemes
+#   KaiselJBCheck               Kaisel JB Check: jailbreak-only        (free Apple ID works)
+#   KaiselIntegrityCheck        Kaisel Integrity Check: full kit        (free Apple ID works)
+#   KaiselIntegrityCheckAttest  Integrity Check + App Attest            (paid developer team only)
+#
+# Bundle IDs derive from KAISEL_BUNDLE_PREFIX. Change it (or pass
+# KAISEL_BUNDLE_PREFIX=... to xcodebuild) if you fork the project, because
+# bundle IDs are unique per Apple developer account.
+name: Kaisel
+options:
+  bundleIdPrefix: com.dhanesh.kaisel
+  deploymentTarget:
+    iOS: "15.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    KAISEL_BUNDLE_PREFIX: com.dhanesh.kaisel
+    MARKETING_VERSION: "1.2.0"
+    CURRENT_PROJECT_VERSION: "1"
+    SWIFT_VERSION: "5.9"
+    TARGETED_DEVICE_FAMILY: "1,2"
+    CODE_SIGN_STYLE: Automatic
+    ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+packages:
+  KaiselKit:
+    path: ..
+
+targetTemplates:
+  KaiselApp:
+    type: application
+    platform: iOS
+    configFiles:
+      Release: Hardening.xcconfig
+    dependencies:
+      - package: KaiselKit
+    scheme: {}
+
+  IntegrityInfo:
+    info:
+      properties:
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        UILaunchScreen: {}
+        NSLocalNetworkUsageDescription: Connects to the Kaisel reference server on your computer.
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+          NSAllowsArbitraryLoads: true      # lab use: plain HTTP to a LAN IP. Remove in production apps.
+        LSApplicationQueriesSchemes: [cydia, sileo, zbra, filza, undecimus, activator]
+
+targets:
+  KaiselJBCheck:
+    templates: [KaiselApp]
+    sources: [KaiselJBCheck]
+    info:
+      path: KaiselJBCheck/Info.plist
+      properties:
+        CFBundleDisplayName: Kaisel JB Check
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        UILaunchScreen: {}
+        LSApplicationQueriesSchemes: [cydia, sileo, zbra, filza, undecimus, activator]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(KAISEL_BUNDLE_PREFIX).jbcheck
+
+  KaiselIntegrityCheck:
+    templates: [KaiselApp, IntegrityInfo]
+    sources: [KaiselIntegrityCheck]
+    info:
+      path: KaiselIntegrityCheck/Info.plist
+      properties:
+        CFBundleDisplayName: Kaisel Integrity Check
+    # No entitlements, so a free Apple ID (Personal Team) can sign it.
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(KAISEL_BUNDLE_PREFIX).integritycheck
+
+  KaiselIntegrityCheckAttest:
+    templates: [KaiselApp, IntegrityInfo]
+    sources:
+      - path: KaiselIntegrityCheck
+        excludes: [Info.plist]
+    info:
+      path: KaiselIntegrityCheckAttest/Info.plist
+      properties:
+        CFBundleDisplayName: Kaisel Integrity Attest
+    # Same sources plus the App Attest entitlement. Personal Teams cannot provision it.
+    entitlements:
+      path: KaiselIntegrityCheckAttest/KaiselIntegrityCheckAttest.entitlements
+      properties:
+        com.apple.developer.devicecheck.appattest-environment: development
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(KAISEL_BUNDLE_PREFIX).integritycheck.attest
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) APP_ATTEST"
