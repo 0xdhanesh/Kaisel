@@ -28,6 +28,11 @@ Run these on authorised test devices only. Record the signals each scenario prod
 | 2026-11-21 | iPhone9,3 / 15.8.2 | Dopamine + RootHide, app not hidden | JB Check **PASS** (`roothideinit.dylib`). Full app device verdict inconsistent, fixed in 1.3.0 |
 | 2026-11-21 | iPhone9,3 / 15.8.2 | Dopamine + RootHide, app hidden (Blacklist) | **FAIL**: both apps clean in 1.2. New checks in 1.3.x to be re-tested |
 | 2026-11-21 | iPhone18,1 / 27.2.1 | Stock, Kaisel 1.3.0 | **False positive**: JB Check said Jailbroken (`dyldModified`, 162,671 words). Fixed in 1.3.1 |
+| 2026-11-21 | iPhone18,1 / 27.2.1 | Stock, Kaisel 1.3.1 | **PASS**: both apps clean |
+| 2026-11-21 | Stock device / iOS 26 | Stock, Kaisel 1.3.1 | **PASS**: clean |
+| 2026-11-21 | iPhone9,3 / 15.8.2 | Dopamine + RootHide, app not hidden, Kaisel 1.3.1 | **PASS**: Jailbroken |
+| 2026-11-21 | iPhone9,3 / 15.8.2 | Dopamine + RootHide, app hidden (Blacklist), Kaisel 1.3.1 | **Partial**: Suspicious (was clean in 1.2). Signals not yet exported; send the result JSON to identify which residual check fired |
+| 2026-11-21 | Lab device (not recorded) | TrollStore via TrollInstallerX, Kaisel 1.3.1 | **PASS**: detected by both apps |
 
 Details: [Lab/results/2026-11-21_iphone9-3_ios15.8.2_dopamine-roothide.md](../Lab/results/2026-11-21_iphone9-3_ios15.8.2_dopamine-roothide.md).
 

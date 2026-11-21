@@ -5,6 +5,21 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- `docs/Pentesting iOS RASP.md`: adversary-centred assessment methodology in five layers (hide, hook/patch,
+  tamper, kernel, server), tiered test plan, results and reporting templates, MASVS/MASTG/ATT&CK/CBUAE/PCI DSS
+  mapping, and a gap analysis of Kaisel with proposed improvements.
+
+### Changed
+- README: version 1.3.1, lab results so far, roadmap from the gap analysis, and clearer limitations
+  (per-app hiding, dyld indicator).
+
+### Lab
+- Dopamine + RootHide with the app hidden (iPhone9,3, iOS 15.8.2) now reports **Suspicious** on 1.3.1
+  (clean on 1.2). Result JSON not yet exported.
+- TrollStore installed with TrollInstallerX: detected by both apps.
+- Stock iOS 26 and iOS 27.2.1: clean on 1.3.1.
+
 ## [1.3.1] - 2026-11-21
 
 ### Fixed
