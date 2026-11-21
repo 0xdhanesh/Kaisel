@@ -11,13 +11,13 @@ A stock iPhone has a few hard guarantees. The system volume is a sealed, read-on
 - **Jailbreak files visible to the kernel.** The rootless jailbreak root `/var/jb` (Dopamine, palera1n), or bootstrap and package-manager files. These are looked up with raw kernel syscalls, so tweaks that hook libc to hide files do not affect the result.
 - **The root volume has been altered.** It is writable or remounted, or system directories have been replaced with symlinks (rootful jailbreaks).
 - **The app sandbox is broken.** The app can write outside its container, or `fork()` succeeds.
-- **Tweak-injection libraries are loaded into the app.** Substrate, ElleKit, TweakInject, Dopamine's `systemhook` and similar.
+- **A known jailbreak injector is loaded into the app.** Substrate, ElleKit, TweakInject, Dopamine's `systemhook`, RootHide's `roothideinit.dylib` and similar, matched by exact file name outside the app bundle, or any image loaded from a jailbreak root (`/var/jb/`, a RootHide `.jbroot-*` directory, `MobileSubstrate/DynamicLibraries`). Since 1.4.0 a name that merely contains a broad marker is never conclusive (see *Injection and loaded images*).
 - **Jailbreak-only environment variables or entitlements.** For example `JB_ROOT_PATH`, or `no-sandbox`/`platform-application`, which only a TrollStore or jailbreak install can grant.
 - **A hiding tweak is caught lying.** libc says a file does not exist while the kernel says it does, or dyld's internal image list has more entries than the public dyld API reports.
 
 **Suspicious** means only indirect evidence: package-manager URL schemes (Cydia, Sileo, Zebra, Filza), a path whose existence is inferred from `EPERM`, a library loaded from an unexpected location, hooks on file APIs, or a check that did not complete.
 
-**Not jailbroken** means none of the above.
+**Not jailbroken** means this process observed no conclusive and no indirect evidence. It is not proof that the device is stock: per-app hiding such as RootHide's Blacklist removes everything the app can see (a measured miss, see [Limitations](LIMITATIONS.md)).
 
 Build and signing facts (Xcode or ad hoc install, `get-task-allow`, provisioning profile, FairPlay encryption) and Developer Mode are **not** jailbreak evidence, and Kaisel JB Check ignores them.
 
@@ -55,10 +55,10 @@ A blanket hook that makes everything look absent, or everything look present, fa
 | Technique | Detail |
 |---|---|
 | Two independent image lists | List A comes from `_dyld_image_count`/`_dyld_get_image_name`, which hiding tweaks hook. List B is dyld's own `dyld_all_image_infos->infoArray`, found through `task_info(TASK_DYLD_INFO)` and read directly from memory. If B has more entries than A, the dyld API is being filtered (`imageListMismatch`, hard). |
-| Allow-list by location | Every image must come from `/System/`, `/usr/lib/`, `/private/preboot/Cryptexes/`, the Developer image paths or the app's own bundle. Any other location is unexpected, whatever its name. |
-| Deny-list by name | A case-insensitive match on obfuscated markers: Frida, Gadget, Substrate, Substitute, libhooker, ElleKit, TweakInject, systemhook (Dopamine), rootlesshooks, Shadow, A-Bypass, FlyJB, SSL Kill Switch, Choicy, `/var/jb/` and others. |
+| Explicit image classes (1.4.0, `rasp_classify.c`) | Every image path is normalised (`/private/var` to `/var`) and put in exactly one class, from lists in `Server/classification.json`: **jailbreak injector** (200, conclusive): exact injector basename outside the bundle, or a path under `/var/jb/`, `MobileSubstrate/DynamicLibraries/`, `/usr/lib/TweakInject/` or a `.jbroot-*` component; **instrumentation** (205, runtime): exact Frida/Cycript basenames, or an injector basename *inside* the bundle (a re-signed app with injected tweaks can run on a stock phone); **trusted**: system locations and the app's own bundle, compared on a directory boundary so `/var/App.app2` is not inside `/var/App.app`; **marker** (206, indicator): a broad substring such as `crane` or `liberty`, or a signed remote-rules marker, in the *file name* of an image outside the system and the bundle; **unknown external** (201, indicator): anything else outside the system and the bundle. |
+| What changed in 1.4.0 | Up to 1.3.1 broad markers were matched against the whole path and any match that did not mention Frida was treated as a conclusive injector, so a framework called `CraneBank`, `LibertyFinance` or `ChoicyAnalytics` could make a stock phone "Jailbroken". Broad markers are now indicators and never apply to in-bundle images. Remote-rules markers can never create a conclusive verdict. In-bundle code is classified by identity only: a renamed library added to a re-signed bundle is not caught by this check (a build manifest is on the roadmap). |
 | `__interpose` sections | A non-system image with `__DATA,__interpose` or `__DATA_CONST,__interpose` is a DYLD-interposing hook library. |
-| Runtime monitor | A `_dyld_register_func_for_add_image` callback records every image loaded after start-up (for example a late `dlopen` of an agent). The ring buffer is drained on each evaluation. |
+| Runtime monitor | A `_dyld_register_func_for_add_image` callback records every image loaded after start-up (for example a late `dlopen` of an agent). The ring buffer is drained on each evaluation; each untrusted image is reported with its class (200, 205, 206 or 201, same rule as at start-up) plus `imageAddedAtRuntime` (203, indicator). Before 1.4.0 a late image could be conclusive on confidence alone. |
 
 ### Hook integrity (`rasp_hooks.c`)
 
@@ -121,6 +121,65 @@ There is **no public API** for Developer Mode. The kit uses three proxies and re
 3. A mounted Developer Disk Image: `debugserver` under `/Developer` (iOS 16 and earlier) or `/System/Developer` (iOS 17 and later, personalised DDI).
 
 Developer Mode is reported in `posture` and as informational signals. It never affects a score or verdict.
+
+### dyld integrity (`rasp_images.c`)
+
+When dyld runs from `/usr/lib/dyld` itself, its code in memory should match the file. The check finds
+dyld through `dyld_all_image_infos`, confirms the file has the same `LC_UUID`, then compares
+`__TEXT,__text` using raw `open`/`pread`. It also checks the path dyld was loaded from (Apple-signed
+`/usr/lib`, `/System` and cryptex locations allowed).
+
+**Limits, learned the hard way.** On iOS 16 and later dyld normally re-executes from its copy inside the
+dyld shared cache. That copy has the same UUID but a different code layout, so comparing it with the file
+is meaningless: 1.3.0 did this and reported a stock iPhone18,1 on iOS 27.2.1 as **Jailbroken** (162,671
+differing words). Since 1.3.1:
+- dyld images flagged `MH_DYLIB_IN_CACHE` are skipped;
+- only a small difference (1 to 64 words) is reported; anything larger is treated as "not the same code";
+- differences that are only `brk` instructions (at most 8) are reported as a debugger breakpoint;
+- `dyldModified` is an **indicator** (weight 0.50), never conclusive and never a hard indicator.
+
+In practice the check only has a chance on iOS 15, where dyld runs from the file. It is unverified on a
+jailbroken device.
+
+### Userspace reboot (`rasp_fs.c`)
+
+Dopamine restarts userspace after the kernel exploit. `kern.userspacereboottime` is then non-zero while
+the kernel keeps its original boot time. Reported as the indicator `userspaceReboot` because stock iOS can
+restart userspace too.
+
+### Jailbreak memory (`JailbreakMemory.swift`)
+
+When conclusive evidence is seen, a Keychain item records the first sighting. A later clean run reports
+`previouslyJailbroken` as an indicator. Keychain items survive app deletion and per-app hiding, but not an
+erase. The server-side per-key history is the tamper-resistant version.
+
+The marker is written only for conclusive evidence with confidence 90 or more, never for an indicator.
+It is ignored and deleted if its recorded evidence is no longer conclusive under the current rule.
+Both apps show **Reset jailbreak history** while a marker exists, and host apps can call
+`JailbreakHistory.reset()`. The protected verdict (`kit.lastVerdict`) is held in memory with per-process
+keys and is never persisted, so it starts empty on every launch.
+
+### One jailbreak rule for both apps
+
+`JailbreakEvidence` decides what is conclusive: an explicit allow-list of finding codes, where an image
+finding (200) counts only if its path still classifies as a known jailbreak injector. The same list is in
+`Server/classification.json`, which the reference server loads; `Server/tests/test_parity.py` fails if
+the Swift sets and the manifest differ. Stored history (the Keychain marker and the server's per-key
+history) is re-validated with the same rule, so 1.3.x entries created by a broad-marker match are ignored.
+`JailbreakDetector` uses it for the JB Check status, and
+`IntegrityKit` uses it to set the **device** verdict to `compromised` when conclusive evidence appears in
+any domain. A tweak injector such as `roothideinit.dylib` is scored in the runtime domain but proves the
+device is jailbroken, so both apps now agree.
+
+### Syscall stub check: reliability
+
+`syscallStubAltered` (304) fires when a raw syscall wrapper (`csops`, `ptrace`, `stat` and others) has no
+`svc #0x80` in its first 8 instructions. On a stock iOS 15 to 27 system these functions are direct stubs,
+so a missing trap means someone rewrote the entry. In the RootHide lab run it fired only while tweaks were
+injected and disappeared when the app was hidden, which is consistent with a real hook. It stays an
+**indicator** (weight 0.70, confidence lowered to 60 in 1.3.0) and is not conclusive, because Apple can turn
+a stub into a wrapper in a future release. Since 1.3.0 the check follows a same-image branch at the entry
+before deciding, and records the first four instruction words in the detail so lab runs can be diagnosed.
 
 ## Risk scoring
 

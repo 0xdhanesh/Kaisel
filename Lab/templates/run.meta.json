@@ -1,0 +1,19 @@
+{
+ "kaiselVersion": "1.4.0",
+ "sourceCommit": "<git rev-parse --short HEAD of the build>",
+ "deviceModel": "<e.g. iPhone9,3>",
+ "iosVersion": "<exact, e.g. 15.8.2>",
+ "tool": "<jailbreak or instrumentation tool and version, or none>",
+ "installMethod": "<Xcode | build_ipa.sh | Sideloadly | Impactor | TrollStore>",
+ "scenario": "<key from Lab/expected.json>",
+ "hiddenFromInjection": false,
+ "date": "<YYYY-MM-DD>",
+ "reproductionSteps": [
+  "<step 1>",
+  "<step 2>"
+ ],
+ "limitations": [
+  "<anything that weakens the result, or 'none'>"
+ ],
+ "sanitised": false
+}

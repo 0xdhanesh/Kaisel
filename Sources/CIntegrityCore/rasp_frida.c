@@ -187,8 +187,8 @@ static void check_memory(const rasp_context_t *ctx, rasp_findings_t *out) {
                     // File-backed remap (e.g. libobjc-trampolines). Only report
                     // if the backing file itself is suspicious.
                     uint16_t c = rasp_classify_image(file, ctx ? ctx->bundle_path : NULL);
-                    if (c == RASP_F_SUSPICIOUS_IMAGE)
-                        rasp_add(out, RASP_F_SUSPICIOUS_IMAGE, 90, "exec mapping of %s", file);
+                    if (c == RASP_F_SUSPICIOUS_IMAGE || c == RASP_F_INSTRUMENTATION_IMAGE)
+                        rasp_add(out, c, 90, "exec mapping of %s", file);
                 } else if (reported < 8 && (info.protection & VM_PROT_READ) && is_remap_of_image_text(addr, size)) {
                     // Remapped signed code (e.g. objc block trampolines): benign.
                 } else if (reported < 8) {

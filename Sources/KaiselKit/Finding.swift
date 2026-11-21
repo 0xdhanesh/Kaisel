@@ -44,14 +44,24 @@ public enum FindingCode: UInt16, Codable, CaseIterable, Sendable {
     case rootlessJailbreakRoot      = 105
     case libcSyscallMismatch        = 108
     case canaryFailed               = 109
+    case dyldModified               = 110
+    case userspaceReboot            = 111
     case sandboxWrite               = 120
     case sandboxFork                = 121
     case sandboxRead                = 122
+    /// Since 1.4.0: a *known jailbreak injector* (exact identity outside the
+    /// bundle, or a jailbreak-root path). Broad name matches moved to 206.
     case suspiciousImage            = 200
     case unexpectedImagePath        = 201
     case imageListMismatch          = 202
     case imageAddedAtRuntime        = 203
     case interposeSection           = 204
+    /// 1.4.0: Frida/Cycript image, or a jailbreak injector found inside the
+    /// app bundle (a re-signed app). Runtime risk, never proof of a jailbreak.
+    case instrumentationImage       = 205
+    /// 1.4.0: broad marker (built-in or signed remote rules) in the name of an
+    /// image outside the system and the bundle. Indicator only.
+    case imageMarkerMatch           = 206
     case inlineHook                 = 300
     case symbolRebound              = 301
     case breakpointInstruction      = 302
@@ -87,6 +97,7 @@ public enum FindingCode: UInt16, Codable, CaseIterable, Sendable {
     case bundlePathUnexpected       = 904
     case jailbreakURLScheme         = 905
     case textHashMismatch           = 907
+    case previouslyJailbroken       = 908
     case checkSuppressed            = 1000
     case findingsOverflow           = 1001
     case simulator                  = 1002
@@ -111,14 +122,19 @@ public enum FindingCode: UInt16, Codable, CaseIterable, Sendable {
         case .rootVolumeWritable:         return .init(category: .filesystemIntegrity, weight: 0.90, hard: true,  title: "Root volume mounted read-write")
         case .rootlessJailbreakRoot:      return .init(category: .jailbreakArtefact, weight: 0.95, hard: true,  title: "Rootless jailbreak root (/var/jb) present")
         case .libcSyscallMismatch:        return .init(category: .tamper,            weight: 0.95, hard: true,  title: "libc and kernel disagree (hiding hook)")
+        case .dyldModified:               return .init(category: .tamper,            weight: 0.50, hard: false, title: "dyld code differs from disk (possible loader hook)")
+        case .userspaceReboot:            return .init(category: .jailbreakArtefact, weight: 0.40, hard: false, title: "Userspace reboot since kernel boot")
+        case .previouslyJailbroken:       return .init(category: .jailbreakArtefact, weight: 0.60, hard: false, title: "Jailbreak seen on this device before")
         case .canaryFailed:               return .init(category: .tamper,            weight: 0.80, hard: false, title: "Control probe failed")
         case .sandboxWrite:               return .init(category: .sandbox,           weight: 0.95, hard: true,  title: "Wrote outside the app container")
         case .sandboxFork:                return .init(category: .sandbox,           weight: 0.90, hard: true,  title: "fork() permitted")
         case .sandboxRead:                return .init(category: .sandbox,           weight: 0.55, hard: false, title: "Read another domain's directory")
-        case .suspiciousImage:            return .init(category: .injection,         weight: 0.90, hard: true,  title: "Known injection/hooking library loaded")
+        case .suspiciousImage:            return .init(category: .injection,         weight: 0.90, hard: true,  title: "Known jailbreak injection library loaded")
         case .unexpectedImagePath:        return .init(category: .injection,         weight: 0.50, hard: false, title: "Image loaded from unexpected location")
         case .imageListMismatch:          return .init(category: .injection,         weight: 0.85, hard: true,  title: "dyld image list is being filtered")
         case .imageAddedAtRuntime:        return .init(category: .injection,         weight: 0.60, hard: false, title: "Suspicious image loaded at runtime")
+        case .instrumentationImage:       return .init(category: .instrumentation,   weight: 0.90, hard: true,  title: "Instrumentation library loaded (Frida, Cycript or injected tweak)")
+        case .imageMarkerMatch:           return .init(category: .injection,         weight: 0.50, hard: false, title: "Image name matches an indicator marker")
         case .interposeSection:           return .init(category: .injection,         weight: 0.60, hard: false, title: "DYLD interposing section in non-system image")
         case .inlineHook:                 return .init(category: .hooking,           weight: 0.85, hard: true,  title: "Inline hook trampoline")
         case .symbolRebound:              return .init(category: .hooking,           weight: 0.85, hard: true,  title: "Symbol pointer rebound (fishhook/interposing)")
@@ -166,14 +182,14 @@ public enum FindingCode: UInt16, Codable, CaseIterable, Sendable {
         case .jailbreakPathPresent, .jailbreakPathErrnoOracle, .symlinkedSystemDirectory, .rootVolumeNotSealed,
              .rootVolumeWritable, .rootlessJailbreakRoot, .libcSyscallMismatch, .sandboxWrite, .sandboxFork,
              .sandboxRead, .suspiciousEntitlement, .envJailbreak, .bundlePathUnexpected, .jailbreakURLScheme,
-             .simulator:
+             .simulator, .dyldModified, .userspaceReboot, .previouslyJailbroken:
             return .device
         case .canaryFailed, .suspiciousImage, .unexpectedImagePath, .imageListMismatch, .imageAddedAtRuntime,
              .interposeSection, .inlineHook, .symbolRebound, .breakpointInstruction, .objcSwizzled,
              .syscallStubAltered, .symbolForeignImage, .ptraced, .codeSigningDebugged, .exceptionPorts,
              .parentProcessUnexpected, .fridaThread, .fridaPortOpen, .fridaDBus, .anonymousExecutableMemory,
              .fridaMemoryMarker, .envInjection, .envGetenvMismatch, .checkSuppressed, .findingsOverflow,
-             .monitorIntervalStarved, .prologueChanged, .textModified:
+             .monitorIntervalStarved, .prologueChanged, .textModified, .instrumentationImage, .imageMarkerMatch:
             return .runtime
         case .codeSignatureInvalid, .getTaskAllow, .binaryDecrypted, .provisioningProfilePresent,
              .teamIdentifierMismatch, .bundleIdentifierMismatch, .enterpriseProfile, .textHashMismatch:

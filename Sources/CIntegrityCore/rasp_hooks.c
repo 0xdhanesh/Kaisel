@@ -102,9 +102,21 @@ static prologue_t inspect_prologue(const void *fn, char *why, size_t whylen) {
     return PRO_OK;
 }
 
-static bool stub_has_svc(const void *fn) {
+// A raw syscall stub traps within its first instructions. If the entry is an
+// unconditional branch that stays inside the same image (a legitimate
+// wrapper in some OS builds), follow it once before deciding. On failure the
+// first four instruction words go into `why` so lab runs can be diagnosed.
+static bool stub_has_svc(const void *fn, char *why, size_t whylen) {
     const uint32_t *p = (const uint32_t *)strip(fn);
     for (int i = 0; i < 8; i++) if (IS_SVC80(p[i])) return true;
+    if (IS_B(p[0])) {
+        int32_t imm = (int32_t)(p[0] << 6) >> 6;
+        const uint32_t *t = (const uint32_t *)((uintptr_t)p + (intptr_t)imm * 4);
+        const char *src = rasp_image_name_for(p), *dst = rasp_image_name_for(t);
+        if (src && dst && strcmp(src, dst) == 0)
+            for (int i = 0; i < 8; i++) if (IS_SVC80(t[i])) return true;
+    }
+    snprintf(why, whylen, "%08x %08x %08x %08x", p[0], p[1], p[2], p[3]);
     return false;
 }
 #endif
@@ -216,8 +228,9 @@ void rasp_check_hooks(const rasp_context_t *ctx, rasp_findings_t *out) {
             case PRO_BRK:        rasp_add(out, RASP_F_BREAKPOINT_INSN, 80, "%s: %s", sym, why); break;
             case PRO_OK: break;
         }
-        if (syscall_stub && !stub_has_svc(fn))
-            rasp_add(out, RASP_F_SYSCALL_STUB_ALTERED, 70, "%s: no svc #0x80 in first 8 insns", sym);
+        char stubwhy[40];
+        if (syscall_stub && !stub_has_svc(fn, stubwhy, sizeof stubwhy))
+            rasp_add(out, RASP_F_SYSCALL_STUB_ALTERED, 60, "%s: no svc #0x80 (entry %s)", sym, stubwhy);
 #endif
         rasp_secure_zero(name, sizeof name);
     }

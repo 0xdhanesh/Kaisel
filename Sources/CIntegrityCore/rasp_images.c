@@ -6,8 +6,9 @@
 //   B. dyld's own `dyld_all_image_infos` structure, located through
 //      task_info(TASK_DYLD_INFO) and read directly from memory.
 // If B lists more images than A, someone is filtering the dyld API.
-// Every image path is classified by allow-listed location (system, cryptex,
-// own bundle) rather than only by a deny-list of names.
+// Every image path is classified by rasp_image_class() (rasp_classify.c):
+// exact identities for injectors and instrumentation, allow-listed locations
+// for system and bundle code, and broad markers only as indicators.
 
 #include "rasp_internal.h"
 #include <TargetConditionals.h>
@@ -16,6 +17,10 @@
 #include <mach-o/dyld.h>
 #include <mach-o/dyld_images.h>
 #include <mach-o/getsect.h>
+#include <mach-o/fat.h>
+#include <mach-o/loader.h>
+#include <fcntl.h>
+#include <string.h>
 #include <os/lock.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -112,36 +117,7 @@ static bool has_prefix_obf(const char *path, int misc) {
     return r;
 }
 
-static bool in_bundle(const char *path, const char *bundle) {
-    if (!bundle || !*bundle) return false;
-    size_t bl = strlen(bundle);
-    if (strncmp(path, bundle, bl) == 0) return true;
-    // dyld reports /private/var/... while NSBundle may report /var/...
-    if (strncmp(path, "/private", 8) == 0 && strncmp(path + 8, bundle, bl) == 0) return true;
-    if (strncmp(bundle, "/private", 8) == 0 && strncmp(path, bundle + 8, bl - 8) == 0) return true;
-    return false;
-}
-
-uint16_t rasp_classify_image(const char *path, const char *bundle_path) {
-    if (!path) return 0;
-    char marker[RASP_STR_MAX];
-    for (uint16_t i = 0; i < RASP_LIST_IMAGE_MARKERS_COUNT; i++) {
-        if (!rasp_obf_decode(RASP_LIST_IMAGE_MARKERS_START + i, marker, sizeof marker)) continue;
-        bool hit = rasp_strcasestr(path, marker) != NULL;
-        rasp_secure_zero(marker, sizeof marker);
-        if (hit) return RASP_F_SUSPICIOUS_IMAGE;
-    }
-    if (rasp_rules_marker_match(path)) return RASP_F_SUSPICIOUS_IMAGE;
-#if TARGET_OS_SIMULATOR
-    return 0;   // simulator images live under Xcode.app / CoreSimulator
-#else
-    if (has_prefix_obf(path, RASP_MISC_SYSTEM) || has_prefix_obf(path, RASP_MISC_USR_LIB) ||
-        has_prefix_obf(path, RASP_MISC_CRYPTEXES) || has_prefix_obf(path, RASP_MISC_DEVELOPER) ||
-        has_prefix_obf(path, RASP_MISC_SYSTEM_DEVELOPER) || in_bundle(path, bundle_path))
-        return 0;
-    return RASP_F_UNEXPECTED_IMAGE_PATH;
-#endif
-}
+// Image classification lives in rasp_classify.c (rasp_image_class).
 
 static bool already_reported(const rasp_findings_t *out, uint16_t code, const char *detail) {
     for (uint32_t i = 0; i < out->count; i++)
@@ -150,14 +126,149 @@ static bool already_reported(const rasp_findings_t *out, uint16_t code, const ch
     return false;
 }
 
+// Detail is the image path. A path longer than the detail buffer keeps its
+// tail, so the basename (what re-validation needs) survives truncation.
+void rasp_image_detail(char d[RASP_DETAIL_LEN], const char *path) {
+    size_t n = strlen(path);
+    if (n < RASP_DETAIL_LEN) snprintf(d, RASP_DETAIL_LEN, "%s", path);
+    else snprintf(d, RASP_DETAIL_LEN, "...%s", path + n - (RASP_DETAIL_LEN - 4));
+}
+
 static void report_image(rasp_findings_t *out, const char *path, const char *bundle) {
-    uint16_t c = rasp_classify_image(path, bundle);
+    rasp_image_class_t cls = rasp_image_class(path, bundle);
+    uint16_t c = rasp_image_class_code(cls);
     if (!c) return;
     char d[RASP_DETAIL_LEN];
-    snprintf(d, sizeof d, "%s", path);
+    rasp_image_detail(d, path);
     if (!already_reported(out, c, d))
-        rasp_add(out, c, c == RASP_F_SUSPICIOUS_IMAGE ? 95 : 70, "%s", d);
+        rasp_add(out, c, rasp_image_class_confidence(cls), "%s", d);
 }
+
+// ---------------------------------------------------------------------------
+// dyld integrity
+//
+// Per-app hiding (RootHide's Blacklist, Choicy, Shadow) keeps tweaks out of the
+// app, but a jailbreak that patches dyld affects every process it spawns.
+//
+// Only sound when dyld runs from /usr/lib/dyld itself. On iOS 16 and later
+// dyld usually re-executes from its copy inside the dyld shared cache
+// (MH_DYLIB_IN_CACHE): same LC_UUID, different code layout, so a byte compare
+// with the file is meaningless. That case is skipped (it caused a false
+// "Jailbroken" on a stock iPhone18,1 / iOS 27.2.1 in 1.3.0). A large diff is
+// also treated as a layout mismatch, not a hook. Indicator only, never
+// conclusive.
+// ---------------------------------------------------------------------------
+#if defined(__aarch64__)
+typedef struct { const struct section_64 *text; uint64_t text_vmaddr; const uint8_t *uuid; } dyld_layout_t;
+
+static bool dyld_lc_visit(const struct load_command *lc, void *vctx) {
+    dyld_layout_t *L = (dyld_layout_t *)vctx;
+    if (lc->cmd == LC_UUID) L->uuid = ((const struct uuid_command *)lc)->uuid;
+    if (lc->cmd == LC_SEGMENT_64) {
+        const struct segment_command_64 *seg = (const struct segment_command_64 *)lc;
+        if (strncmp(seg->segname, "__TEXT", 16) == 0) {
+            L->text_vmaddr = seg->vmaddr;
+            const struct section_64 *s = (const struct section_64 *)(seg + 1);
+            for (uint32_t i = 0; i < seg->nsects; i++)
+                if (strncmp(s[i].sectname, "__text", 16) == 0) L->text = &s[i];
+        }
+    }
+    return true;
+}
+
+static uint32_t be32(uint32_t v) { return __builtin_bswap32(v); }
+
+// Finds the slice of `fd` matching cputype/subtype and its LC_UUID.
+static bool dyld_file_slice(int fd, const struct mach_header_64 *mem, uint64_t *slice, uint8_t uuid[16]) {
+    uint8_t hdr[4096]; int err = 0;
+    if (rasp_raw_pread(fd, hdr, sizeof hdr, 0, &err) < (long)sizeof(struct mach_header_64)) return false;
+    *slice = 0;
+    uint32_t magic; memcpy(&magic, hdr, 4);
+    if (magic == FAT_CIGAM) {
+        uint32_t n = be32(((const struct fat_header *)hdr)->nfat_arch);
+        const struct fat_arch *fa = (const struct fat_arch *)(hdr + sizeof(struct fat_header));
+        bool found = false;
+        for (uint32_t i = 0; i < n && (const uint8_t *)(fa + i + 1) <= hdr + sizeof hdr; i++) {
+            if ((cpu_type_t)be32((uint32_t)fa[i].cputype) == mem->cputype &&
+                ((cpu_subtype_t)be32((uint32_t)fa[i].cpusubtype) & ~CPU_SUBTYPE_MASK) ==
+                    (mem->cpusubtype & ~CPU_SUBTYPE_MASK)) {
+                *slice = be32(fa[i].offset); found = true; break;
+            }
+        }
+        if (!found) return false;
+        if (rasp_raw_pread(fd, hdr, sizeof hdr, (int64_t)*slice, &err) < (long)sizeof(struct mach_header_64)) return false;
+    }
+    const struct mach_header_64 *fh = (const struct mach_header_64 *)hdr;
+    if (fh->magic != MH_MAGIC_64 || fh->sizeofcmds > sizeof hdr - sizeof *fh) return false;
+    const uint8_t *p = (const uint8_t *)(fh + 1);
+    for (uint32_t i = 0; i < fh->ncmds; i++) {
+        const struct load_command *lc = (const struct load_command *)p;
+        if (lc->cmdsize < sizeof *lc || p + lc->cmdsize > hdr + sizeof hdr) return false;
+        if (lc->cmd == LC_UUID) { memcpy(uuid, ((const struct uuid_command *)lc)->uuid, 16); return true; }
+        p += lc->cmdsize;
+    }
+    return false;
+}
+
+static void check_dyld(rasp_findings_t *out, const struct dyld_all_image_infos *all) {
+    const struct mach_header_64 *mh = (const struct mach_header_64 *)all->dyldImageLoadAddress;
+    if (!mh || mh->magic != MH_MAGIC_64) return;
+    char path[32];
+    if (!rasp_obf_decode(RASP_MISC(RASP_MISC_DYLD), path, sizeof path)) return;
+
+    // dyld_all_image_infos v15+ records the file dyld was loaded from.
+    // dyld running from the shared cache: nothing on disk to compare against.
+    if (mh->flags & 0x80000000u /* MH_DYLIB_IN_CACHE */) goto done;
+
+    // Cryptex and /System copies are Apple-signed locations, not evidence.
+    if (all->version >= 15 && all->dyldPath && all->dyldPath[0] == '/' && strcmp(all->dyldPath, path) != 0 &&
+        !has_prefix_obf(all->dyldPath, RASP_MISC_CRYPTEXES) && !has_prefix_obf(all->dyldPath, RASP_MISC_SYSTEM) &&
+        !has_prefix_obf(all->dyldPath, RASP_MISC_USR_LIB))
+        rasp_add(out, RASP_F_DYLD_MODIFIED, 60, "dyld loaded from %.160s", all->dyldPath);
+
+    dyld_layout_t L = { NULL, 0, NULL };
+    rasp_for_each_load_command(mh, dyld_lc_visit, &L);
+    if (!L.text || !L.uuid || L.text->size == 0 || L.text->size > (64u << 20)) goto done;
+
+    int err = 0;
+    int fd = rasp_raw_open(path, O_RDONLY, 0, &err);
+    if (fd < 0) goto done;                         // unreadable: no evidence either way
+    uint64_t slice = 0; uint8_t fuuid[16];
+    // A different build on disk (e.g. an OS that ships dyld elsewhere) is not
+    // evidence; only compare bytes when the UUIDs match.
+    if (dyld_file_slice(fd, mh, &slice, fuuid) && memcmp(fuuid, L.uuid, 16) == 0) {
+        const uint8_t *mem = (const uint8_t *)mh + (L.text->addr - L.text_vmaddr);
+        uint8_t buf[4096];
+        uint64_t size = L.text->size, first = UINT64_MAX;
+        uint32_t diff = 0, brk = 0;
+        for (uint64_t off = 0; off < size; off += sizeof buf) {
+            size_t n = (size_t)((size - off) < sizeof buf ? (size - off) : sizeof buf);
+            if (rasp_raw_pread(fd, buf, n, (int64_t)(slice + L.text->offset + off), &err) != (long)n) { diff = 0; break; }
+            if (memcmp(buf, mem + off, n) == 0) continue;
+            for (size_t w = 0; w + 4 <= n; w += 4) {
+                uint32_t a, b;
+                memcpy(&a, buf + w, 4); memcpy(&b, mem + off + w, 4);
+                if (a == b) continue;
+                if (first == UINT64_MAX) first = off + w;
+                diff++;
+                if ((b & 0xFFE0001Fu) == 0xD4200000u) brk++;
+            }
+        }
+        if (diff && diff == brk && brk <= 8)
+            // A debugger (lldb sets breakpoints inside dyld for image events).
+            rasp_add(out, RASP_F_BREAKPOINT_INSN, 80, "dyld: %u software breakpoint(s), first at +0x%llx",
+                     brk, (unsigned long long)first);
+        else if (diff && diff <= 64)
+            // A handful of rewritten instructions looks like hooks. Hundreds or
+            // thousands means we are not comparing the same code: no evidence.
+            rasp_add(out, RASP_F_DYLD_MODIFIED, 70, "dyld __text differs from disk: %u words, first at +0x%llx",
+                     diff, (unsigned long long)first);
+    }
+    rasp_raw_close(fd);
+done:
+    rasp_secure_zero(path, sizeof path);
+}
+#endif
 
 void rasp_check_images(const rasp_context_t *ctx, rasp_findings_t *out) {
     RASP_BEGIN(out, RASP_CHECK_IMAGES);
@@ -197,6 +308,9 @@ void rasp_check_images(const rasp_context_t *ctx, rasp_findings_t *out) {
     if (count_b && count_b > count_a)
         rasp_add(out, RASP_F_IMAGE_LIST_MISMATCH, 90, "dyld_all_image_infos=%u _dyld_image_count=%u", count_b, count_a);
 
+#if defined(__aarch64__)
+    if (all) check_dyld(out, all);
+#endif
     RASP_END(out, RASP_CHECK_IMAGES);
 }
 

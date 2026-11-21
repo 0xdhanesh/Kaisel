@@ -30,6 +30,11 @@ final class JailbreakModel: ObservableObject {
         result = await detector.check()
         running = false
     }
+
+    func resetHistory() async {
+        JailbreakHistory.reset()
+        await run()
+    }
 }
 
 struct JailbreakView: View {
@@ -52,6 +57,10 @@ struct JailbreakView: View {
                         .disabled(model.running)
                     Button(model.copied ? "Copied" : "Copy result JSON (lab log)") { model.copyJSON() }
                         .disabled(model.result == nil)
+                    if JailbreakHistory.firstSighting != nil {
+                        Button("Reset jailbreak history") { Task { await model.resetHistory() } }
+                            .foregroundColor(.red)
+                    }
                 }
 
                 if let r = model.result {

@@ -2,14 +2,20 @@
 enum ObfuscatedList {
     static let jbPaths: Range<UInt16> = 0..<49
     static let symlinkDirs: Range<UInt16> = 49..<56
-    static let imageMarkers: Range<UInt16> = 56..<84
-    static let fridaThreads: Range<UInt16> = 84..<91
-    static let fridaMemMarkers: Range<UInt16> = 91..<95
-    static let envInjection: Range<UInt16> = 95..<100
-    static let envJb: Range<UInt16> = 100..<107
-    static let suspiciousEntitlements: Range<UInt16> = 107..<117
-    static let urlSchemes: Range<UInt16> = 117..<123
-    static let ddiPaths: Range<UInt16> = 123..<125
-    static let misc: Range<UInt16> = 125..<150
-    static let hookTargets: Range<UInt16> = 150..<176
+    static let fridaThreads: Range<UInt16> = 56..<63
+    static let fridaMemMarkers: Range<UInt16> = 63..<67
+    static let envInjection: Range<UInt16> = 67..<72
+    static let envJb: Range<UInt16> = 72..<79
+    static let suspiciousEntitlements: Range<UInt16> = 79..<89
+    static let urlSchemes: Range<UInt16> = 89..<95
+    static let ddiPaths: Range<UInt16> = 95..<97
+    static let misc: Range<UInt16> = 97..<123
+    static let hookTargets: Range<UInt16> = 123..<149
+    static let imageInjectorBasenames: Range<UInt16> = 149..<167
+    static let imageJbRootPrefixes: Range<UInt16> = 167..<170
+    static let imageJbRootComponents: Range<UInt16> = 170..<171
+    static let imageInstrBasenames: Range<UInt16> = 171..<176
+    static let imageInstrPrefixes: Range<UInt16> = 176..<179
+    static let imageBroadMarkers: Range<UInt16> = 179..<200
+    static let imageTrustedPrefixes: Range<UInt16> = 200..<205
 }

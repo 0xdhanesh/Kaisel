@@ -95,6 +95,22 @@
   "title": "Control probe failed",
   "weight": 0.8
  },
+ "110": {
+  "category": "tamper",
+  "domain": "device",
+  "hard": false,
+  "name": "dyldModified",
+  "title": "dyld code differs from disk (possible loader hook)",
+  "weight": 0.5
+ },
+ "111": {
+  "category": "jailbreakArtefact",
+  "domain": "device",
+  "hard": false,
+  "name": "userspaceReboot",
+  "title": "Userspace reboot since kernel boot",
+  "weight": 0.4
+ },
  "120": {
   "category": "sandbox",
   "domain": "device",
@@ -124,7 +140,7 @@
   "domain": "runtime",
   "hard": true,
   "name": "suspiciousImage",
-  "title": "Known injection/hooking library loaded",
+  "title": "Known jailbreak injection library loaded",
   "weight": 0.9
  },
  "201": {
@@ -158,6 +174,22 @@
   "name": "interposeSection",
   "title": "DYLD interposing section in non-system image",
   "weight": 0.6
+ },
+ "205": {
+  "category": "instrumentation",
+  "domain": "runtime",
+  "hard": true,
+  "name": "instrumentationImage",
+  "title": "Instrumentation library loaded (Frida, Cycript or injected tweak)",
+  "weight": 0.9
+ },
+ "206": {
+  "category": "injection",
+  "domain": "runtime",
+  "hard": false,
+  "name": "imageMarkerMatch",
+  "title": "Image name matches an indicator marker",
+  "weight": 0.5
  },
  "300": {
   "category": "hooking",
@@ -430,5 +462,13 @@
   "name": "textHashMismatch",
   "title": "__TEXT hash differs from build",
   "weight": 0.9
+ },
+ "908": {
+  "category": "jailbreakArtefact",
+  "domain": "device",
+  "hard": false,
+  "name": "previouslyJailbroken",
+  "title": "Jailbreak seen on this device before",
+  "weight": 0.6
  }
 }

@@ -9,7 +9,7 @@ Adding the Swift package to your own app, build hardening and signed remote rule
 In Xcode, choose **File › Add Package Dependencies…** and enter the repository URL, or add it to `Package.swift`:
 
 ```swift
-.package(url: "https://github.com/0xdhanesh/Kaisel.git", from: "1.2.0")
+.package(url: "https://github.com/0xdhanesh/Kaisel.git", from: "1.3.0")
 // target dependency:
 .product(name: "KaiselKit", package: "Kaisel")
 ```

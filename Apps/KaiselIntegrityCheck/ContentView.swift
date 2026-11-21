@@ -10,6 +10,8 @@ struct ContentView: View {
                 if let r = model.report {
                     Section("Device") {
                         verdictRow("Device integrity", r.device)
+                        infoRow("Jailbreak", r.jailbreakEvidence.isEmpty
+                                ? "not detected" : "jailbroken (\(r.jailbreakEvidence.count) conclusive)")
                         verdictRow("This app's runtime", r.runtime)
                         if let a = r.app { verdictRow("App build", a) }
                         else { infoRow("App build", "not enforced (informational)") }
@@ -43,6 +45,13 @@ struct ContentView: View {
                     if let s = model.sealedSummary { Text(s).font(.caption.monospaced()) }
                     Button("Copy result JSON (lab log)") { model.copyReportJSON() }
                         .disabled(model.report == nil)
+                    if JailbreakHistory.firstSighting != nil {
+                        Button("Reset jailbreak history") {
+                            JailbreakHistory.reset()
+                            Task { await model.run() }
+                        }
+                        .foregroundColor(.red)
+                    }
                 }
                 Section("Reference server") {
                     TextField("http://<mac-ip>:8080", text: $model.serverURL)

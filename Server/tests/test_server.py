@@ -70,8 +70,18 @@ class FakeAppleCA:
         return cbor2.dumps({"signature": sig, "authenticatorData": auth})
 
 
-def report(signals):
-    return json.dumps({"verdict": "trusted", "signals": signals, "build": {"textSHA256": "ab"}, "rulesVersion": 1}).encode()
+def report_dict(signals, **over):
+    """A well-formed 1.4.0 report with every expected check complete."""
+    d = {"verdict": "trusted", "sdkVersion": "1.4.0", "reportSchemaVersion": 2,
+         "signals": [dict({"detail": ""}, **x) for x in signals],
+         "checksCompleted": pol.ALL_CHECKS, "checksExpected": pol.ALL_CHECKS,
+         "build": {"textSHA256": "ab"}, "rulesVersion": 1}
+    d.update(over)
+    return d
+
+
+def report(signals, **over):
+    return json.dumps(report_dict(signals, **over)).encode()
 
 
 STOCK_IOS27 = [  # iPhone18,1 iOS 27.2.1 Xcode install: all build/posture noise
@@ -141,10 +151,56 @@ class PolicyTests(unittest.TestCase):
         self.assertEqual(pol.decide(pol.assess(DOPAMINE, p), "verified", p)[0], "deny")
         self.assertIn(pol.assess(FRIDA, p)["runtime"]["verdict"], ("high", "compromised"))
 
+    def test_roothide_unhidden_device_is_compromised(self):
+        # Lab: iPhone9,3, iOS 15.8.2, Dopamine + RootHide, app not hidden.
+        signals = [
+            {"code": 200, "confidence": 95, "detail": "/var/containers/Bundle/Application/.jbroot-0/usr/lib/roothideinit.dylib"},
+            {"code": 304, "confidence": 70, "detail": "csops: no svc #0x80 in first 8 insns"},
+            {"code": 905, "confidence": 80, "detail": "sileo://"},
+        ]
+        p = pol.Policy(expected_distribution=None, require_app_attest=False)
+        a = pol.assess(signals, p)
+        self.assertEqual(a["device"]["verdict"], "compromised")
+        self.assertEqual(len(a["device"]["jailbreakEvidence"]), 1)
+        self.assertEqual(pol.decide(a, "missing", p)[0], "deny")
+
+    def test_frida_gadget_alone_is_not_a_jailbreak(self):
+        p = pol.Policy(expected_distribution=None)
+        a = pol.assess([{"code": 200, "confidence": 95, "detail": "/x/FridaGadget.dylib"}], p)
+        self.assertEqual(a["device"]["jailbreakEvidence"], [])
+        self.assertNotEqual(a["device"]["verdict"], "compromised")
+
+    def test_history_flags_hidden_rerun(self):
+        # Same key, later report is clean because the app was hidden.
+        p = pol.Policy(expected_distribution=None, require_app_attest=False)
+        a = pol.assess([], p)
+        self.assertEqual(a["device"]["verdict"], "trusted")
+        reasons = pol.apply_history(a, "2026-11-21T12:00:00Z")
+        self.assertEqual(a["device"]["verdict"], "high")
+        self.assertTrue(reasons)
+        self.assertEqual(pol.decide(a, "missing", p)[0], "deny")
+
+    def test_stock_ios27_dyld_layout_mismatch_is_not_a_jailbreak(self):
+        # Regression: 1.3.0 reported "Jailbroken" on a stock iPhone18,1 / iOS 27.2.1.
+        p = pol.Policy(expected_distribution=None, require_app_attest=False)
+        a = pol.assess([{"code": 110, "confidence": 95,
+                         "detail": "dyld __text differs from disk: 162671 words, first at +0x0"}], p)
+        self.assertEqual(a["device"]["jailbreakEvidence"], [])
+        self.assertNotIn(a["device"]["verdict"], ("high", "compromised"))
+
+    def test_history_from_demoted_evidence_is_ignored(self):
+        self.assertFalse(pol.history_valid("2026-11-21T16:50:00Z"))
+        self.assertFalse(pol.history_valid({"firstSeen": "x", "evidence": [{"code": 110, "detail": "dyld"}]}))
+        self.assertTrue(pol.history_valid({"firstSeen": "x", "evidence": [
+            {"code": 200, "detail": ".jbroot-0/usr/lib/roothideinit.dylib"}]}))
+
     def test_missing_app_attest_denied_when_required(self):
         p = pol.Policy(expected_distribution=None, require_app_attest=True)
         self.assertEqual(pol.decide(pol.assess([], p), "missing", p)[0], "deny")
-        p2 = pol.Policy(expected_distribution=None, require_app_attest=False)
+        # 1.4.0: strict mode requires App Attest even if require_app_attest is False.
+        p_strict = pol.Policy(expected_distribution=None, require_app_attest=False)
+        self.assertEqual(pol.decide(pol.assess([], p_strict), "missing", p_strict)[0], "deny")
+        p2 = pol.Policy(expected_distribution=None, mode="lab", require_app_attest=False)
         self.assertEqual(pol.decide(pol.assess([], p2), "missing", p2)[0], "step_up")
 
 
@@ -201,12 +257,13 @@ class EndToEndTests(unittest.TestCase):
             # challenge is single use
             with self.assertRaises(ValueError):
                 store.take_challenge(cid)
-            # payload swapped after sealing -> rejected
+            # payload swapped after sealing -> structured deny (1.4.0; raised ValueError before)
             cid, ch = store.new_challenge()
             s = sealed(DOPAMINE, 3, ch)
             s["payload"] = base64.b64encode(report(STOCK_IOS27)).decode()
-            with self.assertRaises(ValueError):
-                server.verify_sealed(s, store.take_challenge(cid), store, Cfg)
+            r = server.verify_sealed(s, store.take_challenge(cid), store, Cfg)
+            self.assertEqual(r["decision"], "deny")
+            self.assertIn("tampered", r["reasons"][0])
 
 
 if __name__ == "__main__":

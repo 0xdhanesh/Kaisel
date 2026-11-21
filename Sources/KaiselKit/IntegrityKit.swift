@@ -11,7 +11,7 @@ import CIntegrityCore
 /// let sealed = try await kit.seal(report, serverNonce: nonce)   // send to backend
 /// ```
 public final class IntegrityKit: @unchecked Sendable {
-    public static let sdkVersion = "1.2.0"
+    public static let sdkVersion = "1.4.0"
 
     public let configuration: IntegrityConfiguration
     public var scorer = RiskScorer()
@@ -109,11 +109,25 @@ public final class IntegrityKit: @unchecked Sendable {
         raw.append(.init(.simulator, 100, "targetEnvironment(simulator)"))
         #endif
 
-        let signals = Self.requireCorroboration(makeSignals(raw))
+        var signals = Self.requireCorroboration(makeSignals(raw))
+        if let first = signals.first(where: JailbreakEvidence.isConclusive) {
+            JailbreakMemory.remember(RawSignal(first.code, first.confidence, first.detail))
+        } else if let past = JailbreakMemory.recall() {
+            signals = makeSignals(raw + [past])
+            signals = Self.requireCorroboration(signals)
+        }
         let posture = PostureProbe.collect(osVersion: sys.osVersion, osMajor: sys.osMajor, model: sys.model,
                                            devModeSysctl: cf.devmode_sysctl, csFlags: cf.cs_flags,
                                            ddiMounted: raw.contains { $0.code == .developerDiskImageMounted })
-        let device = scorer.assess(.device, signals)
+        var device = scorer.assess(.device, signals)
+        // Same rule as Kaisel JB Check: conclusive jailbreak evidence in any
+        // domain (for example a tweak injector such as roothideinit.dylib,
+        // which is scored under runtime) makes the device compromised.
+        if signals.contains(where: JailbreakEvidence.isConclusive), device.verdict < .compromised {
+            device = DomainAssessment(domain: .device,
+                                      score: Swift.max(device.score, scorer.thresholds.compromised),
+                                      verdict: .compromised, categories: device.categories)
+        }
         let runtime = scorer.assess(.runtime, signals)
         let app: DomainAssessment? = configuration.expectedDistribution == nil ? nil : scorer.assess(.app, signals)
         var worst: DomainAssessment = device
@@ -127,6 +141,7 @@ public final class IntegrityKit: @unchecked Sendable {
         let report = IntegrityReport(
             id: UUID(),
             timestamp: started,
+            reportSchemaVersion: IntegrityReport.currentSchemaVersion,
             sdkVersion: Self.sdkVersion,
             verdict: worst.verdict,
             score: worst.score,
@@ -145,12 +160,17 @@ public final class IntegrityKit: @unchecked Sendable {
         return report
     }
 
-    /// Images dlopen'ed since the previous evaluation, filtered to the ones
-    /// that are suspicious or come from unexpected locations.
+    /// Images dlopen'ed since the previous evaluation that are not trusted.
+    /// Each one is reported with its own class (200 injector, 205
+    /// instrumentation, 206 marker, 201 unknown external), so the conclusive
+    /// rule is the same as for images present at start-up, plus an
+    /// `imageAddedAtRuntime` indicator recording that it arrived late.
+    /// Before 1.4.0 a late image was conclusive whenever its confidence was 95
+    /// and its name did not mention Frida.
     private func newlyLoadedImages() -> [RawSignal] {
-        CoreBridge.drainNewImages().compactMap { path in
-            guard let c = CoreBridge.classifyImage(path) else { return nil }
-            return RawSignal(.imageAddedAtRuntime, c == .suspiciousImage ? 95 : 70, path)
+        CoreBridge.drainNewImages().flatMap { path -> [RawSignal] in
+            guard let e = CoreBridge.classifyImageEvidence(path) else { return [] }
+            return [RawSignal(e.code, e.confidence, path), RawSignal(.imageAddedAtRuntime, 70, path)]
         }
     }
 
@@ -185,9 +205,13 @@ public final class IntegrityKit: @unchecked Sendable {
     /// create such regions (seen on iOS 27 with no instrumentation present).
     /// It is scored only when another instrumentation or hooking signal in the
     /// same report corroborates it; otherwise it is kept as informational.
+    /// Mirrored by `corroboratingCodes` in Server/classification.json (parity-tested).
+    static let corroboratingCodes: Set<FindingCode> = [.fridaThread, .fridaDBus, .fridaMemoryMarker, .fridaPortOpen,
+                                                       .inlineHook, .symbolRebound, .suspiciousImage,
+                                                       .instrumentationImage, .imageListMismatch]
+
     static func requireCorroboration(_ signals: [Signal]) -> [Signal] {
-        let corroborating: Set<FindingCode> = [.fridaThread, .fridaDBus, .fridaMemoryMarker, .fridaPortOpen,
-                                               .inlineHook, .symbolRebound, .suspiciousImage, .imageListMismatch]
+        let corroborating = corroboratingCodes
         let corroborated = signals.contains { corroborating.contains($0.code) && !$0.informational }
         guard !corroborated else { return signals }
         return signals.map { s in
