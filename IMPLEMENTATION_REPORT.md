@@ -73,14 +73,17 @@ Docs: `README.md`, `CHANGELOG.md`, `docs/DETECTION.md`, `docs/SERVER.md`, `docs/
 | C image classifier vs fixtures and server (`Tests/CClassifier/run_tests.py`) | Linux, clang and gcc, `-Wall -Wextra -Werror` | **34/34 agree** with both compilers |
 | `gen_strings.py --verify` and seeded reproducibility | Linux | **Passed** |
 | `py_compile` of lab and server tools | Linux | **Passed** |
-| Swift package tests (`xcodebuild test -scheme KaiselKit`) | macOS | **NOT RUN yet** |
-| App builds (KaiselJBCheck, KaiselIntegrityCheck, KaiselIntegrityCheckAttest) | macOS | **NOT RUN yet** |
-| Full C core compile (Apple headers) | macOS | **NOT RUN yet** (only `rasp_classify.c` and `rasp_util.c` were compiled on Linux) |
+| Swift package tests (`xcodebuild test -scheme KaiselKit`) | macOS, Xcode 27.2 (27B52), Swift 6.4.2, iPhone 18 Pro simulator | **27/27 passed** (ImageClassificationTests 9, HardeningTests 3, JailbreakEvidenceTests 5, RiskScorerTests 10) |
+| App builds (KaiselJBCheck, KaiselIntegrityCheck, KaiselIntegrityCheckAttest) | macOS, Xcode 27.2, Release, generic iOS, unsigned | **All three succeeded**, 0 errors (1 standard AppIntents metadata warning each) |
+| Full C core compile (Apple headers) | macOS, Xcode 27.2 | **Passed** (compiled as part of the three app builds and the package tests) |
+| Server, lab, C classifier and `gen_strings.py --verify` re-run on the Mac | macOS, Python venv from `Server/requirements.txt` | **Passed** (64, 11, 34/34, 205 strings) |
 
 ## Build status
 
-Not built on macOS from this change set yet. The Swift and Apple-specific C changes are unverified until
-the macOS rows above run (locally or in CI).
+Built and tested on macOS (Xcode 27.2, Swift 6.4.2) on 2026-11-21: the three apps build unsigned in
+Release for generic iOS, and the KaiselKit package tests pass on the iPhone 18 Pro simulator. The server,
+lab, C classifier and string-table checks were also re-run on the Mac and passed. No source changes were
+needed. This is a build and simulator result only: 1.4.0 has not been run on a device.
 
 ## Real-device evidence
 
