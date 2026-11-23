@@ -38,6 +38,7 @@ Run these on authorised test devices only. Record the signals each scenario prod
 | 2026-11-21 | iPhone9,3 / 15.8.2 | Dopamine + RootHide, app not hidden, Kaisel 1.3.x, screenshots | **PASS**: JB Check Jailbroken (`roothideinit.dylib` from `.jbroot-*`, `sileo://`); Integrity Check device Compromised 85, runtime Compromised 97, inline guard flags 2 |
 | 2026-11-21 | iPhone9,3 / 15.8.2 | Dopamine + RootHide, app hidden (Blacklist), Kaisel 1.3.x, screenshots | **FAIL**: both apps clean (JB Check Not jailbroken, no indicators; Integrity Check Trusted 0, inline guard clean). The earlier *Suspicious* result did not reproduce; no residual signal fired |
 | 2026-11-21 | iPhone18,1 / 27.2.1 | Stock, Kaisel 1.3.x, screenshots | **PASS**: JB Check Not jailbroken; Integrity Check Trusted 0 |
+| 2026-11-23 | iPhone 17 Simulator / 27.2 (Xcode Device Hub) | Simulator, Kaisel 1.4.1, screenshots | **Detected**: JB Check Jailbroken (host `sshd`, `ssh`, `bash`, `sh`, `sftp-server`, `sshd_config`; image from `CoreSimulator` runtime path); Integrity Check device Compromised 85, runtime Compromised 100 |
 
 Details: [Lab/results/2026-11-21_iphone9-3_ios15.8.2_dopamine-roothide.md](../Lab/results/2026-11-21_iphone9-3_ios15.8.2_dopamine-roothide.md). Screenshots of the latest runs are in [`docs/images/lab/`](images/lab/) and embedded in the [README](../README.md#lab-results-so-far).
 

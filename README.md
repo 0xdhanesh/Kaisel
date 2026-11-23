@@ -91,6 +91,14 @@ Unhidden, RootHide still injects `roothideinit.dylib` into the app, and that sin
 
 No false positive: no evidence or indicators, and device and runtime both Trusted 0 with Developer Mode on.
 
+### Evidence: iPhone 17 Simulator, iOS 27.2 (Xcode Device Hub)
+
+| JB Check | Integrity Check |
+|---|---|
+| <img src="docs/images/lab/jb-check_iphone17-sim_ios27.2_simulator.png" width="240" alt="JB Check on the iPhone 17 Simulator reporting Jailbroken with sshd, ssh, bash and sh artefacts and an image loaded from the CoreSimulator runtime path"> | <img src="docs/images/lab/integrity-check_iphone17-sim_ios27.2_simulator.png" width="240" alt="Integrity Check on the iPhone 17 Simulator reporting device Compromised 85 and runtime Compromised 100"> |
+
+The Simulator is flagged, not passed: it runs on the host's filesystem, so `/bin/bash`, `/usr/sbin/sshd` and similar host binaries are visible, and images load from the `CoreSimulator` runtime path. Both apps report Compromised (device 85, runtime 100). Treat Simulator results as "detected as non-genuine", not as a jailbreak finding.
+
 ## Quick start
 
 ```bash
